@@ -1,0 +1,97 @@
+# Test your FastAPI endpoints
+
+GET http://127.0.0.1:8000/
+Accept: application/json
+
+
+###
+GET http://127.0.0.1:8000/hello/User
+Accept: application/json
+
+
+###
+GET http://127.0.0.1:8000/mail/test?email=2776599147@qq.com
+Accept: application/json
+
+
+###
+GET http://127.0.0.1:8000/auth/code?email=2776599147@qq.com
+Accept: application/json
+
+
+###
+POST http://127.0.0.1:8000/auth/register
+Accept: application/json
+Content-Type: application/json
+
+{ "email":"2776599147@qq.com",
+  "username": "xinjiayu",
+  "password": "111111",
+  "confirm_password": "111111",
+  "code": "6733"
+}
+
+
+### 获取tocen
+POST http://127.0.0.1:8000/auth/login
+Accept: application/json
+Content-Type: application/json
+
+{
+  "email":"2776599147@qq.com",
+  "password": "111111"
+}
+
+
+###
+POST http://127.0.0.1:8000/names/get_names
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIyIiwic3ViIjoiMSJ9.eDitlufFT1MnFTuSsNFs62MHwm6jeM-NDqfzKUVhNYs
+
+{
+  "category": "企业名",
+  "other": "我们要推出一款全新的AI智能硬件，希望能起个好名字"
+}
+
+
+### 第一轮：首次起名
+POST http://127.0.0.1:8000/names/generate
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIyIiwic3ViIjoiMSJ9.eDitlufFT1MnFTuSsNFs62MHwm6jeM-NDqfzKUVhNYs
+
+{
+  "category": "企业名",
+  "surname": "",
+  "length": "五个字以上",
+  "gender": "不限",
+  "other": "一家做环保新材料的初创公司",
+  "exclude": []
+}
+
+
+###
+POST http://127.0.0.1:8000/names/feedback
+Accept: application/json
+Content-Type: application/json
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIyIiwic3ViIjoiMSJ9.eDitlufFT1MnFTuSsNFs62MHwm6jeM-NDqfzKUVhNYs
+
+{
+  "thread_id": "9be1fd1d-9937-4534-8e7b-ea37f6d2a633",
+  "category": "企业名",
+  "feedback": "我喜欢上一轮生成的‘星熠环保新材’这个名字。请保留它，并以此为基调，把其他4个名字的第一个字全部换成五行属‘火’的字。"
+}
+
+
+###
+POST http://127.0.0.1:8000/knowledge/upload
+Content-Type: multipart/form-data; boundary=WebAppBoundary
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiIyIiwic3ViIjoiMSJ9.eDitlufFT1MnFTuSsNFs62MHwm6jeM-NDqfzKUVhNYs
+
+--WebAppBoundary
+Content-Disposition: form-data; name="file"; filename="company_rules.txt"
+Content-Type: text/plain
+
+< ./company_rules.txt
+--WebAppBoundary--
