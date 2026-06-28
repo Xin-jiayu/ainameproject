@@ -2,7 +2,7 @@ from pydantic import BaseModel, EmailStr, Field, model_validator, ValidationErro
 from typing import Annotated
 
 #接收用户传过来的数据的一个对象
-RawPasswordStr = Annotated[str,Field(...,min_length=4,max_length=50)]
+RawPasswordStr = Annotated[str,Field(...,min_length=6,max_length=50)]
 RawUsernamedStr = Annotated[str,Field(...,min_length=4,max_length=50)]
 class RegisterIn(BaseModel):
     email: EmailStr
@@ -35,8 +35,10 @@ class UserSchema(BaseModel):
     id:Annotated[int,Field(...)]
     username: RawUsernamedStr
     email: EmailStr
+    free_quota: Annotated[int,Field(...)]
 
 from models.user import User
 class LoginOut(BaseModel):
     user:UserSchema
     token: str
+

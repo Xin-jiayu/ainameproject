@@ -1,49 +1,97 @@
+from datetime import datetime
+from typing import Annotated, Any, List, Literal
+
 from pydantic import BaseModel, Field, model_validator
-from typing import Annotated, List,Literal
+
 
 class NameSchema(BaseModel):
-    name:Annotated[str,Field(...,description="The name of the person")]
-    reference:Annotated[str,Field(...,description="The name of the person from where")]
-    moral:Annotated[str,Field(...,description="寓意")]
-    #加了2个字段，这两个字段的意思是，第一，让大模型根据我们起的名字，赋值域名
-    domain:str=Field(...,description="为该品牌设计的纯小写.com域名，例如：astar.com")
-    #是否被注册  查询第二方接口，根据domain，判断是否已被注册
-    domain_status:str=Field(default="正在查询...",description="域名的注册状态")
+    name: Annotated[str, Field(..., description="The name of the person")]
+    reference: Annotated[str, Field(..., description="The name of the person from where")]
+    moral: Annotated[str, Field(..., description="寓意")]
+    # 加了2个字段，这两个字段的意思是，第一，让大模型根据我们起的名字，赋值域名
+    domain: str = Field(..., description="为该品牌设计的纯小写.com域名，例如：astar.com")
+    # 是否被注册  查询第二方接口，根据domain，判断是否已被注册
+    domain_status: str = Field(default="正在查询...", description="域名的注册状态")
 
 
-#  我们给大模型一个要求，让他起名字，一次性起多个名字。所以结构如下
+# 我们给大模型一个要求，让他起名字，一次性起多个名字。所以结构如下
 class NameResultSchema(BaseModel):
-    names:List[NameSchema]
+    names: List[NameSchema]
+
 
 CategoryLiteral = Literal["人名", "企业名", "宠物名"]
+
+
 # 为了多类型起名改造用户输入，接收分类参数
 class NameIn(BaseModel):
-
-    category:Annotated[CategoryLiteral,Field(...,description="命名的分类")]
-    surname:Annotated[str,Field("",description="The surname of the person")]
-    gender:Annotated[Literal["不限", "男", "女"],Field("",description="The gender of the person")]
-    length:Annotated[str,Field("",description="The length of the person")]
-    other:Annotated[str|None,Field("",description="The other person")]
-    exclude:Annotated[list[str],Field([],description="The exclude person")]
+    category: Annotated[CategoryLiteral, Field(..., description="命名的分类")]
+    surname: Annotated[str, Field("", description="The surname of the person")]
+    gender: Annotated[Literal["不限", "男", "女"], Field("", description="The gender of the person")]
+    length: Annotated[str, Field("", description="The length of the person")]
+    other: Annotated[str | None, Field("", description="The other person")]
+    exclude: Annotated[list[str], Field([], description="The exclude person")]
 
     @model_validator(mode="after")
     def validate(self):
         if self.category == "人名" and not self.surname:
-            raise  ValueError("给人起名字时，必须给定姓氏")
+            raise ValueError("给人起名字时，必须给定姓氏")
         # 因为用户调用NameIn，必定期望返回的是本对象。
         return self
 
 
-
 class NameOutSchema(BaseModel):
-    names:List[NameSchema]
+    names: List[NameSchema]
+
 
 class NameSchemaWithThreadOut(BaseModel):
-    thread_id:str
-    names:List[NameSchema]
+    thread_id: str
+    names: List[NameSchema]
+    record_id: int | None = None
+
 
 # 为了调整需求，开发一个接收参数的类
 class FeedbackSchema(BaseModel):
-    thread_id:str = Field(...)
+    thread_id: str = Field(...)
     category: Literal["人名", "企业名", "宠物名"] = Field(..., description="路由依据")
     feedback: str = Field(..., description="用户的修改意见，如：换成带水字旁的字")
+
+
+class NameFeedbackOutSchema(BaseModel):
+    id: int
+    thread_id: str
+    feedback_text: str
+    result_data: dict[str, Any] | None = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class NameRecordListItemSchema(BaseModel):
+    id: int
+    category: CategoryLiteral
+    title: str | None = None
+    thread_id: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class NameRecordDetailSchema(BaseModel):
+    id: int
+    category: CategoryLiteral
+    title: str | None = None
+    input_data: dict[str, Any]
+    result_data: dict[str, Any] | None = None
+    thread_id: str
+    status: str
+    created_at: datetime
+    updated_at: datetime
+    feedbacks: list[NameFeedbackOutSchema] = []
+
+    model_config = {"from_attributes": True}
+
+
+class DeleteRecordOut(BaseModel):
+    message: str

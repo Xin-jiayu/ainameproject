@@ -4,6 +4,7 @@ from typing import TypedDict, List, Dict, Any, Literal
 from langgraph.graph import StateGraph, END
 from langchain_deepseek import ChatDeepSeek
 from pydantic import SecretStr
+import settings
 from schemas.name_schemas import NameIn
 from schemas.name_schemas import NameResultSchema
 
@@ -24,7 +25,7 @@ class WorkFlowState(TypedDict):
 
 llm = ChatDeepSeek(
     model="deepseek-chat",
-    api_key="sk-63618bf7d9704dabb97e46f4d88cf74d",
+    api_key=settings.DEEPSEEK_API_KEY,
     temperature=0.5
 )
 

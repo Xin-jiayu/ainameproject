@@ -1,0 +1,33 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Secrets and local config
+.env
+*.env.local
+
+# IDE
+.idea/
+.vscode/
+
+# Runtime data
+ainame/uploads/
+ainame/chroma_rag_db/
+
+# uni-app build outputs
+ainameapp/unpackage/
+ainameapp/.vite/
+node_modules/
+dist/
+build/
+
+# OS
+.DS_Store
+Thumbs.db

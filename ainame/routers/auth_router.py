@@ -1,6 +1,6 @@
 import random
 import string
-from fastapi import APIRouter,Depends,Query
+from fastapi import APIRouter,Depends,Query,HTTPException
 from fastapi_mail import FastMail,MessageSchema,MessageType
 from typing import Annotated
 # EmailStr 是pydantic专门用来校验数据格式是否是邮箱的类
@@ -47,7 +47,7 @@ async def get_email_code(email: Annotated[EmailStr,Query(...)],
 
 from schemas.user_schemas import RegisterIn,UserCreateSchema
 from repository.user_repo import UserRepository
-from http.client import HTTPException
+
 #功能：用户注册。用户注册的本质是向用户表插入一条数据
 #用户在页面上填写自己的信息：用户名、密码、性别、邮箱等
 #后台要接受用户的信息。可以设计对象来接收,把接收对象转成数据库对象，存入数据库

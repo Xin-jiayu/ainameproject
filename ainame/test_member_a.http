@@ -1,0 +1,65 @@
+### 成员 A 第一阶段接口测试清单
+### 使用方式：先启动后端服务，登录后把 token 填到下面变量
+
+@baseUrl = http://127.0.0.1:8000
+@token = 替换为登录返回的token
+@recordId = 1
+@threadId = 替换为生成接口返回的thread_id
+@knowledgeFileId = 1
+
+### 1. 首次生成：应扣 1 次，创建 name_records 和 usage_records
+POST {{baseUrl}}/names/generate
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "category": "企业名",
+  "surname": "",
+  "gender": "不限",
+  "length": "两字",
+  "other": "AI 起名工具，科技感，亲和力",
+  "exclude": []
+}
+
+### 2. 多轮反馈：不扣次数，创建 name_feedbacks，更新 name_records.result_data
+POST {{baseUrl}}/names/feedback
+Authorization: Bearer {{token}}
+Content-Type: application/json
+
+{
+  "thread_id": "{{threadId}}",
+  "category": "企业名",
+  "feedback": "名字更短一些，更有科技感"
+}
+
+### 3. 历史列表：只能看到自己的记录
+GET {{baseUrl}}/names/records?skip=0&limit=20
+Authorization: Bearer {{token}}
+
+### 4. 历史详情：应返回 feedbacks
+GET {{baseUrl}}/names/records/{{recordId}}
+Authorization: Bearer {{token}}
+
+### 5. 删除历史记录：软删除
+DELETE {{baseUrl}}/names/records/{{recordId}}
+Authorization: Bearer {{token}}
+
+### 6. 上传知识库文件：应返回 knowledge_file_id 和 pending 状态
+POST {{baseUrl}}/knowledge/upload
+Authorization: Bearer {{token}}
+Content-Type: multipart/form-data; boundary=boundary
+
+--boundary
+Content-Disposition: form-data; name="file"; filename="company_rules.txt"
+Content-Type: text/plain
+
+企业命名要求：简洁、科技感、避免生僻字。
+--boundary--
+
+### 7. 知识库文件列表：查看 pending / processing / completed / failed
+GET {{baseUrl}}/knowledge/files?skip=0&limit=20
+Authorization: Bearer {{token}}
+
+### 8. 知识库文件详情
+GET {{baseUrl}}/knowledge/files/{{knowledgeFileId}}
+Authorization: Bearer {{token}}
