@@ -152,6 +152,8 @@ async def feedback(data:FeedbackSchema,
     record = await record_repository.get_record_by_thread_id(user_id, data.thread_id)
     if not record:
         raise HTTPException(status_code=404, detail="起名记录不存在，无法继续优化")
+    if not data.category:
+        data.category = record.category
 
     await init_graph()
     result = await feedback_names(data, user_id)
