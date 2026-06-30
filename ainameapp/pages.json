@@ -11,12 +11,20 @@
     {
       "path": "pages/register/register",
       "style": { "navigationBarTitleText": "账号注册" }
+    },
+    {
+      "path": "pages/history/history",
+      "style": { "navigationBarTitleText": "我的起名记录", "enablePullDownRefresh": true }
+    },
+    {
+      "path": "pages/history/detail",
+      "style": { "navigationBarTitleText": "方案详情" }
     }
   ],
   "globalStyle": {
     "navigationBarTextStyle": "black",
     "navigationBarTitleText": "AI起名",
-    "navigationBarBackgroundColor": "#F8F8F8",
-    "backgroundColor": "#F8F8F8"
+    "navigationBarBackgroundColor": "#F7F4EE",
+    "backgroundColor": "#F7F4EE"
   }
 }
