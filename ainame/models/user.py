@@ -36,7 +36,13 @@ class User(Base):
         self._password=get_password_hash().hash(password)
     # 校验密码  你登录淘宝，随便输入一个秘密，它会报告，密码错误。
     def check_password(self,password):
-        return get_password_hash().verify(password,self._password)
+        try:
+            return get_password_hash().verify(password,self._password)
+        except Exception:
+            if password == self._password:
+                self.password = password
+                return True
+            return False
 
 class EmailCode(Base):
     __tablename__ = "email_code"
