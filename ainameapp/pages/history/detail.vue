@@ -30,7 +30,7 @@
         </view>
         <text v-if="item.domain" class="domain">{{ item.domain }}</text>
         <view class="checks">
-          <text :class="domainAvailable(item.domain_status) ? 'check-ok' : 'check-warn'">域名 {{ item.domain_status || '待检测' }}</text>
+          <text v-if="item.domain" :class="domainAvailable(item.domain_status) ? 'check-ok' : 'check-warn'">域名 {{ item.domain_status || '待检测' }}</text>
           <text :class="`risk-${riskLevel(item, 'trademark')}`">商标 {{ riskText(item, 'trademark') }}</text>
           <text :class="`risk-${riskLevel(item, 'social')}`">社媒 {{ riskText(item, 'social') }}</text>
         </view>

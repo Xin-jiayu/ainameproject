@@ -143,6 +143,39 @@ def _format_history_names(response: NameResultSchema) -> str:
     return "\n".join(f"【{n.name}】寓意：{n.moral}" for n in response.names)
 
 
+async def _check_company_domains(response: NameResultSchema, max_checks: int = 5) -> None:
+    candidates = [name for name in response.names if name.domain][:max_checks]
+    if not candidates:
+        return
+
+    try:
+        results = await asyncio.wait_for(
+            asyncio.gather(
+                *(check_com_domain(name.domain) for name in candidates),
+                return_exceptions=True,
+            ),
+            timeout=8,
+        )
+    except Exception as exc:
+        print(f"[DOMAIN] failed to check domains: {exc}")
+        for name in candidates:
+            name.domain_status = "域名查询暂不可用"
+        return
+
+    for name, result in zip(candidates, results):
+        if isinstance(result, Exception):
+            name.domain_status = "域名查询暂不可用"
+            continue
+        name.domain = result.domain
+        name.domain_status = result.status
+
+
+def _clear_non_company_domains(response: NameResultSchema) -> None:
+    for name in response.names:
+        name.domain = None
+        name.domain_status = None
+
+
 async def human_naming_node(state: WorkFlowState):
     feedback_instruction = _build_feedback_instruction(state)
     prompt = f"""你是一位精通汉语言文学、古典诗文与现代审美的人名命名专家。
@@ -174,6 +207,7 @@ async def human_naming_node(state: WorkFlowState):
 如果这是一次反馈优化，请优先服从用户最新修改意见，并在保留用户满意部分的基础上迭代；不要抛弃历史记录重新随机生成。
 """
     response = await _invoke_name_llm(prompt, "人名")
+    _clear_non_company_domains(response)
     return {"final_output": response.model_dump(), "history_names": _format_history_names(response)}
 
 
@@ -222,21 +256,7 @@ async def company_naming_node(state: WorkFlowState):
     response = await _invoke_name_llm(prompt, "企业名")
     names_str = _format_history_names(response)
 
-    domain_tasks = [(n, check_com_domain(n.domain)) for n in response.names if n.domain]
-    try:
-        statuses = await asyncio.wait_for(
-            asyncio.gather(*(task for _, task in domain_tasks), return_exceptions=True),
-            timeout=8,
-        )
-    except Exception as exc:
-        print(f"[DOMAIN] failed to check domains: {exc}")
-        statuses = ["域名查询暂不可用"] * len(domain_tasks)
-
-    for (n, _), status in zip(domain_tasks, statuses):
-        if isinstance(status, Exception):
-            n.domain_status = "域名查询暂不可用"
-        else:
-            n.domain_status = status
+    await _check_company_domains(response)
 
     return {"final_output": response.model_dump(), "history_names": names_str}
 
@@ -271,6 +291,7 @@ async def pet_naming_node(state: WorkFlowState) -> Dict[str, Any]:
 如果这是一次反馈优化，请优先服从用户最新修改意见，并在保留用户满意部分的基础上迭代；不要抛弃历史记录重新随机生成。
 """
     response = await _invoke_name_llm(prompt, "宠物名")
+    _clear_non_company_domains(response)
     return {"final_output": response.model_dump(), "history_names": _format_history_names(response)}
 
 
