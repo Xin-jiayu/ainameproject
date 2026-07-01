@@ -1,5 +1,31 @@
 # 成员 C 交接文档
 
+## 0. 按提交时间的成员 C 更新记录
+
+> 本节按 Git 提交时间倒序记录成员 C 相关交接内容；后续继续维护时，优先把最新提交写在最上面。
+
+### 2026-07-01 18:35:00 +0800 f4eb79a - Support feedback prompts across naming categories
+
+- 文件：`ainame/core/workflow.py`
+- 文件：`ainame/tests/test_feedback_prompt_flow.py`
+- 梳理 `feedback_names` 当前传入字段：`user_id`、`feedback`、`category`，并通过 `thread_id` 从 LangGraph checkpoint 恢复上一轮状态。
+- 人名、企业名、宠物/IP 三类节点统一使用反馈规则：保留用户满意部分，只修改用户指出的问题。
+- 人名节点和宠物/IP 节点已补充 `history_names` 保存与读取能力，反馈时可看到上一轮结果。
+- 新增三类场景测试：首次生成后继续反馈，`thread_id` 保持不变。
+
+### 2026-07-01 17:45:38 +0800 d15c047 - Stabilize naming workflow fallbacks
+
+- 文件：`ainame/core/rag_service.py`
+- 文件：`ainame/core/workflow.py`
+- 文件：`ainame/routers/name_router.py`
+- 文件：`ainame/schemas/name_schemas.py`
+- 文件：`ainame/tests/test_rag_service_fallback.py`
+- 文件：`ainame/tests/test_workflow_llm_fallback.py`
+- RAG 检索区分未上传知识库、检索无结果、检索服务异常，并在企业名 Prompt 中明确降级命名规则。
+- LangGraph PostgreSQL checkpointer 支持 Windows Selector 事件循环、`autocommit=True` 和内存兜底，避免 `/names/generate` 因 checkpoint 初始化直接 500。
+- 大模型结构化输出为空时增加 JSON fallback，本地校验输出必须恰好 5 个名字。
+- 生成失败时通过 `NameGenerationError` 转成可读 502，并保留额度回退逻辑。
+
 ## 1. 当前职责范围
 
 成员 C 负责 AI 工作流、RAG 知识库接入、Prompt 质量优化、起名分类路由、反馈记忆链路和基础校验逻辑。
