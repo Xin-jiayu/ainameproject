@@ -123,7 +123,28 @@ async def supervisor_node(state: WorkFlowState):
     return {}
 
 
+def _build_feedback_instruction(state: WorkFlowState) -> str:
+    if not state.get("feedback") or not state.get("history_names"):
+        return ""
+
+    return f"""
+【反馈优化要求】
+上一轮生成结果：
+{state['history_names']}
+
+用户最新修改意见：
+{state['feedback']}
+
+请保留上一轮中用户满意的部分，只修改用户指出的问题；不要抛弃历史记录重新随机生成。
+"""
+
+
+def _format_history_names(response: NameResultSchema) -> str:
+    return "\n".join(f"【{n.name}】寓意：{n.moral}" for n in response.names)
+
+
 async def human_naming_node(state: WorkFlowState):
+    feedback_instruction = _build_feedback_instruction(state)
     prompt = f"""你是一位精通汉语言文学、古典诗文与现代审美的人名命名专家。
 请严格根据用户信息生成【恰好 5 个】候选人名，并保证每个名字都适合中文人名使用。
 
@@ -148,23 +169,16 @@ async def human_naming_node(state: WorkFlowState):
 - domain_status：人名场景不需要域名查询，可以省略或填写 null。
 
 请只输出符合结构化格式的数据，不要输出额外说明文字。"""
+    prompt += f"""
+{feedback_instruction}
+如果这是一次反馈优化，请优先服从用户最新修改意见，并在保留用户满意部分的基础上迭代；不要抛弃历史记录重新随机生成。
+"""
     response = await _invoke_name_llm(prompt, "人名")
-    return {"final_output": response.model_dump()}
+    return {"final_output": response.model_dump(), "history_names": _format_history_names(response)}
 
 
 async def company_naming_node(state: WorkFlowState):
-    feedback_instruction = ""
-    if state.get("feedback") and state.get("history_names"):
-        feedback_instruction = f"""
-【反馈优化要求】
-上一轮生成结果：
-{state['history_names']}
-
-用户最新修改意见：
-{state['feedback']}
-
-请保留上一轮中用户满意的方向，只针对修改意见迭代优化，不要抛弃历史记录重新随机生成。
-"""
+    feedback_instruction = _build_feedback_instruction(state)
 
     user_id = state.get("user_id")
     search_query = state.get("other")
@@ -203,11 +217,10 @@ async def company_naming_node(state: WorkFlowState):
 - domain_status：先填写“正在查询...”，后端会统一查询并覆盖。
 
 {feedback_instruction}
-如果这是一次反馈优化，请优先服从用户最新修改意见，并在保留用户满意方向的基础上迭代；不要抛弃历史记录重新随机生成。
+如果这是一次反馈优化，请优先服从用户最新修改意见，并在保留用户满意部分的基础上迭代；不要抛弃历史记录重新随机生成。
 请只输出符合结构化格式的数据，不要输出额外说明文字。"""
     response = await _invoke_name_llm(prompt, "企业名")
-    memory_list = [f"【{n.name}】寓意：{n.moral}" for n in response.names]
-    names_str = "\n".join(memory_list)
+    names_str = _format_history_names(response)
 
     domain_tasks = [(n, check_com_domain(n.domain)) for n in response.names if n.domain]
     try:
@@ -229,6 +242,7 @@ async def company_naming_node(state: WorkFlowState):
 
 
 async def pet_naming_node(state: WorkFlowState) -> Dict[str, Any]:
+    feedback_instruction = _build_feedback_instruction(state)
     prompt = f"""你是一位擅长宠物与虚拟 IP 命名的创意顾问，风格可爱、亲切、好记，并且富有画面感。
 请根据用户描述生成【恰好 5 个】宠物名或 IP 名候选。
 
@@ -252,8 +266,12 @@ async def pet_naming_node(state: WorkFlowState) -> Dict[str, Any]:
 - domain_status：宠物/IP 场景不需要域名查询，可以省略或填写 null。
 
 请只输出符合结构化格式的数据，不要输出额外说明文字。"""
+    prompt += f"""
+{feedback_instruction}
+如果这是一次反馈优化，请优先服从用户最新修改意见，并在保留用户满意部分的基础上迭代；不要抛弃历史记录重新随机生成。
+"""
     response = await _invoke_name_llm(prompt, "宠物名")
-    return {"final_output": response.model_dump()}
+    return {"final_output": response.model_dump(), "history_names": _format_history_names(response)}
 
 
 def route_by_category(state: WorkFlowState):
