@@ -2,11 +2,16 @@ from fastapi import FastAPI,Depends
 from fastapi_mail import FastMail, MessageSchema, MessageType
 
 from dependencies import get_email
+from core.observability import request_logging_middleware, setup_logging
 from routers.auth_router import router as auth_router
 from routers.name_router import router as name_router
+from routers.ops_router import router as ops_router
+from routers.phase_two_router import router as phase_two_router
 from routers.rag_router import router as rag_router
 
+setup_logging()
 app = FastAPI()
+app.middleware("http")(request_logging_middleware)
 
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
@@ -20,6 +25,8 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(name_router)
 app.include_router(rag_router)
+app.include_router(ops_router)
+app.include_router(phase_two_router)
 
 @app.get("/")
 async def root():

@@ -34,7 +34,10 @@ class KnowledgeFileRepository:
     async def list_user_files(self, user_id: int, skip: int = 0, limit: int = 20):
         stmt = (
             select(KnowledgeFile)
-            .where(KnowledgeFile.user_id == int(user_id))
+            .where(
+                KnowledgeFile.user_id == int(user_id),
+                KnowledgeFile.is_deleted.is_(False),
+            )
             .order_by(desc(KnowledgeFile.updated_at), desc(KnowledgeFile.id))
             .offset(skip)
             .limit(limit)
@@ -46,6 +49,7 @@ class KnowledgeFileRepository:
         stmt = select(KnowledgeFile).where(
             KnowledgeFile.id == int(knowledge_file_id),
             KnowledgeFile.user_id == int(user_id),
+            KnowledgeFile.is_deleted.is_(False),
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
@@ -64,8 +68,39 @@ class KnowledgeFileRepository:
         knowledge_file = await self.get_file(knowledge_file_id)
         if not knowledge_file:
             return None
+        if knowledge_file.is_deleted:
+            return knowledge_file
         knowledge_file.status = status
         knowledge_file.error_message = error_message
+        if status == "completed":
+            knowledge_file.processed_at = datetime.now()
+        if status in {"pending", "processing"}:
+            knowledge_file.processed_at = None
+        knowledge_file.updated_at = datetime.now()
+        await self.session.commit()
+        await self.session.refresh(knowledge_file)
+        return knowledge_file
+
+    async def mark_deleted(self, user_id: int, knowledge_file_id: int):
+        knowledge_file = await self.get_user_file(user_id, knowledge_file_id)
+        if not knowledge_file:
+            return None
+        knowledge_file.is_deleted = True
+        knowledge_file.status = "deleted"
+        knowledge_file.deleted_at = datetime.now()
+        knowledge_file.updated_at = datetime.now()
+        await self.session.commit()
+        await self.session.refresh(knowledge_file)
+        return knowledge_file
+
+    async def mark_retrying(self, user_id: int, knowledge_file_id: int):
+        knowledge_file = await self.get_user_file(user_id, knowledge_file_id)
+        if not knowledge_file:
+            return None
+        knowledge_file.status = "pending"
+        knowledge_file.error_message = None
+        knowledge_file.retry_count = (knowledge_file.retry_count or 0) + 1
+        knowledge_file.processed_at = None
         knowledge_file.updated_at = datetime.now()
         await self.session.commit()
         await self.session.refresh(knowledge_file)

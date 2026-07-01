@@ -216,7 +216,7 @@ from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
 from psycopg_pool import AsyncConnectionPool
 # 1. 全局初始化：只执行一次，复用连接
 # thread_id 存入psotgress
-DB_URI = "postgresql://postgres:123456@localhost:5432/ainame"
+DB_URI = settings.POSTGRES_MEMORY_DB_URI
 
 connection_pool: AsyncConnectionPool | None = None
 memory: AsyncPostgresSaver | None = None

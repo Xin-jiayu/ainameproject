@@ -111,3 +111,43 @@ async def get_knowledge_file(
     if not knowledge_file:
         raise HTTPException(status_code=404, detail="知识库文件不存在")
     return knowledge_file
+
+
+@router.delete("/files/{file_id}", response_model=KnowledgeFileOutSchema)
+async def delete_knowledge_file(
+    file_id: int,
+    user_id: int = Depends(auth_handler.auth_access_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    repository = KnowledgeFileRepository(session=session)
+    knowledge_file = await repository.mark_deleted(user_id, file_id)
+    if not knowledge_file:
+        raise HTTPException(status_code=404, detail="knowledge file not found")
+    return knowledge_file
+
+
+@router.post("/files/{file_id}/retry", response_model=KnowledgeFileOutSchema)
+async def retry_knowledge_file(
+    file_id: int,
+    user_id: int = Depends(auth_handler.auth_access_dependency),
+    session: AsyncSession = Depends(get_session),
+):
+    repository = KnowledgeFileRepository(session=session)
+    knowledge_file = await repository.get_user_file(user_id, file_id)
+    if not knowledge_file:
+        raise HTTPException(status_code=404, detail="knowledge file not found")
+    if knowledge_file.status == "processing":
+        raise HTTPException(status_code=409, detail="knowledge file is processing")
+    if knowledge_file.status != "failed":
+        raise HTTPException(status_code=400, detail="only failed knowledge files can retry")
+    if not os.path.exists(knowledge_file.file_path):
+        raise HTTPException(status_code=400, detail="local file does not exist")
+
+    knowledge_file = await repository.mark_retrying(user_id, file_id)
+    task_message = {
+        "knowledge_file_id": knowledge_file.id,
+        "user_id": user_id,
+        "file_path": knowledge_file.file_path,
+    }
+    await send_to_queue(task_message)
+    return knowledge_file

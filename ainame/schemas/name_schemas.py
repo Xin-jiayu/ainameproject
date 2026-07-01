@@ -125,3 +125,90 @@ class NameRecordDetailSchema(BaseModel):
 
 class DeleteRecordOut(BaseModel):
     message: str
+
+
+class NameCandidateOutSchema(BaseModel):
+    id: int
+    record_id: int
+    name: str
+    reference: str | None = None
+    moral: str | None = None
+    reason: str | None = None
+    domain: str | None = None
+    domain_status: str | None = None
+    score: int | None = None
+    is_selected: bool = False
+    is_favorite: bool = False
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CandidateScoreIn(BaseModel):
+    score: int = Field(..., ge=0, le=100)
+
+
+class DomainCheckOutSchema(BaseModel):
+    id: int
+    record_id: int
+    candidate_id: int | None = None
+    domain: str
+    suffix: str
+    check_status: str
+    raw_result: dict[str, Any] | None = None
+    checked_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class TrademarkCheckOutSchema(BaseModel):
+    id: int
+    record_id: int
+    candidate_id: int | None = None
+    name: str
+    category_code: str | None = None
+    risk_level: str
+    matched_items: dict[str, Any] | None = None
+    provider: str | None = None
+    checked_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SocialNameCheckOutSchema(BaseModel):
+    id: int
+    record_id: int
+    candidate_id: int | None = None
+    platform: str
+    name: str
+    risk_level: str
+    matched_accounts: dict[str, Any] | None = None
+    checked_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class OrderCreateIn(BaseModel):
+    product_type: str = Field(..., max_length=50)
+    amount: float = Field(0, ge=0)
+    quota_delta: int = Field(0, ge=0)
+    business_id: int | None = None
+    extra_data: dict[str, Any] | None = None
+
+
+class OrderOutSchema(BaseModel):
+    id: int
+    user_id: int
+    order_no: str
+    product_type: str
+    amount: float
+    pay_status: str
+    business_id: int | None = None
+    quota_delta: int
+    before_quota: int | None = None
+    after_quota: int | None = None
+    extra_data: dict[str, Any] | None = None
+    created_at: datetime
+    paid_at: datetime | None = None
+
+    model_config = {"from_attributes": True}

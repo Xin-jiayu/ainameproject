@@ -2,6 +2,7 @@ import asyncio
 from langchain_deepseek import ChatDeepSeek
 from pydantic import SecretStr
 from langchain_core.prompts import ChatPromptTemplate
+import settings
 # 确保你的环境中有这些 schema
 # from schemas.agent import NameSchema, NameResultSchema
 # from schemas.name import NameIn
@@ -9,7 +10,7 @@ from langchain_core.prompts import ChatPromptTemplate
 # 开发起名智能体
 llm = ChatDeepSeek(
     model="deepseek-chat",
-    api_key="sk-8ffad4b05bd44bf786f4e5027e12fd3d",
+    api_key=settings.DEEPSEEK_API_KEY,
     # 为了让模型返回数据的时候根据我们给定的格式输出，所以稍微低一点
     temperature=0.5,
     timeout=120

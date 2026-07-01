@@ -1,8 +1,9 @@
 import asyncio
 import sys
 from langgraph.checkpoint.postgres.aio import AsyncPostgresSaver
+import settings
 
-DB_URI = "postgresql://postgres:123456@localhost:5432/ainame"
+DB_URI = settings.POSTGRES_MEMORY_DB_URI
 
 async def setup_memory_db():
     print("正在连接 PostgreSQL...")

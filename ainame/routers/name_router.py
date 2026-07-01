@@ -8,6 +8,7 @@ from core.auth import AuthHandler
 from core.workflow import feedback_names, generate_naming, generate_naming_v2, init_graph
 from dependencies import get_session
 from repository.name_record_repo import NameRecordRepository
+from repository.phase_two_repo import PhaseTwoRepository
 from repository.user_repo import UserRepository
 from schemas.name_schemas import (
     DeleteRecordOut,
@@ -48,6 +49,13 @@ async def save_usage_record(
     )
 
 
+async def save_candidates(session: AsyncSession, record_id: int, result_data: dict, replace: bool = False):
+    phase_two_repository = PhaseTwoRepository(session=session)
+    if replace:
+        return await phase_two_repository.replace_candidates_from_result(record_id, result_data)
+    return await phase_two_repository.create_candidates_from_result(record_id, result_data)
+
+
 # user_id: int = Depends(auth_handler.auth_access_dependency) 用户登录校验，如果没有登录，无法访问
 @router.post("/get_names", response_model=NameOutSchema)
 async def get_names(name_info: NameIn,
@@ -66,6 +74,7 @@ async def get_names(name_info: NameIn,
             result_data=result,
             thread_id=f"legacy-{uuid.uuid4()}",
         )
+        await save_candidates(session, record.id, result)
         await save_usage_record(session, user_id, record.id, quota_change)
         return NameOutSchema(names=result["names"])
     except Exception:
@@ -90,6 +99,7 @@ async def generate_names(name_info: NameIn,
             result_data=result["names"],
             thread_id=result["thread_id"],
         )
+        await save_candidates(session, record.id, result["names"])
         await save_usage_record(session, user_id, record.id, quota_change)
         return NameSchemaWithThreadOut(
             thread_id=result["thread_id"],
@@ -162,6 +172,7 @@ async def feedback(data:FeedbackSchema,
         feedback_text=data.feedback,
         result_data=result["names"],
     )
+    await save_candidates(session, record.id, result["names"], replace=True)
     return NameSchemaWithThreadOut(
         thread_id=result["thread_id"],
         names=result["names"]["names"],

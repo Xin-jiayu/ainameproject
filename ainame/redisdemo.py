@@ -1,5 +1,7 @@
 import redis
-REDIS_URL = "redis://localhost:6379/0"
+import settings
+
+REDIS_URL = settings.REDIS_URL
 redis_client = redis.from_url(REDIS_URL,decode_responses=True)
 # #存入数据
 # redis_client.set("username","admin")

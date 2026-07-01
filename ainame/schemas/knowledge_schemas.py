@@ -11,6 +11,10 @@ class KnowledgeFileOutSchema(BaseModel):
     file_size: int | None = None
     status: str
     error_message: str | None = None
+    retry_count: int = 0
+    is_deleted: bool = False
+    processed_at: datetime | None = None
+    deleted_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
 
