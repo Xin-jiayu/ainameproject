@@ -5,7 +5,7 @@
         <text class="eyebrow">NAMING STUDIO</text>
         <view class="hello">你好，{{ user.username || '灵感探索者' }}</view>
       </view>
-      <view class="history-link" @click="goHistory">历史方案 <text>›</text></view>
+      <view class="top-actions"><text @click="goKnowledge">知识库</text><text @click="goHistory">历史方案 ›</text></view>
     </view>
 
     <view class="hero-card">
@@ -103,14 +103,26 @@
         <view class="name-main">
           <view class="name-header">
             <text class="name-text">{{ item.name }}</text>
-            <view v-if="item.domain" :class="['domain-pill', domainAvailable(item.domain_status) ? 'available' : 'unavailable']">
-              <text class="dot"></text>{{ item.domain_status || '查询中' }}
-            </view>
+            <text class="score">{{ candidateScore(item) }} 分</text>
           </view>
-          <text v-if="item.domain" class="domain-text">{{ item.domain }}</text>
+          <view class="candidate-actions">
+            <text :class="['action-chip', isFavorite(item) ? 'active' : '']" @click="toggleFavorite(item)">{{ isFavorite(item) ? '★ 已收藏' : '☆ 收藏' }}</text>
+            <text :class="['action-chip', isSelected(item) ? 'selected' : '']" @click="toggleSelected(item)">{{ isSelected(item) ? '✓ 已选中' : '设为意向' }}</text>
+            <text :class="['action-chip', isCompared(item) ? 'active' : '']" @click="toggleCompare(item)">{{ isCompared(item) ? '移出对比' : '加入对比' }}</text>
+          </view>
+          <view v-if="domainChecks(item).length" class="validation-block">
+            <text class="validation-title">域名可用性</text>
+            <view class="domain-matrix"><view v-for="domain in domainChecks(item)" :key="domain.domain" :class="['domain-cell', domain.available ? 'available' : 'taken']"><text>{{ domain.suffix }}</text><text>{{ domain.available ? '可注册' : domain.status }}</text></view></view>
+          </view>
+          <view class="risk-row"><text :class="['risk-pill', `risk-${riskLevel(item, 'trademark')}`]">商标 {{ riskText(item, 'trademark') }}</text><text :class="['risk-pill', `risk-${riskLevel(item, 'social')}`]">社媒 {{ riskText(item, 'social') }}</text></view>
           <view class="detail-line"><text class="detail-label">灵感</text><text>{{ item.reference }}</text></view>
           <view class="detail-line"><text class="detail-label">寓意</text><text>{{ item.moral }}</text></view>
         </view>
+      </view>
+
+      <view v-if="compareItems.length" class="compare-dock">
+        <view><text class="compare-title">候选对比</text><text class="compare-note">已加入 {{ compareItems.length }}/3 个</text></view>
+        <button size="mini" @click="showComparison">立即对比</button>
       </view>
 
       <view class="feedback-card">
@@ -143,6 +155,9 @@ const excludeText = ref('');
 const names = ref([]);
 const threadId = ref('');
 const feedbackText = ref('');
+const favoriteNames = ref(uni.getStorageSync('favoriteNames') || []);
+const selectedName = ref(uni.getStorageSync('selectedName') || '');
+const compareItems = ref([]);
 const knowledgeFiles = ref([]);
 const loading = ref(false);
 const uploading = ref(false);
@@ -177,7 +192,28 @@ const switchCategory = (category) => {
 const changeGender = (event) => { formData.value.gender = genderOptions[event.detail.value]; };
 const changeLength = (event) => { formData.value.length = lengthOptions[event.detail.value]; };
 const goHistory = () => uni.navigateTo({ url: '/pages/history/history' });
+const goKnowledge = () => uni.navigateTo({ url: '/pages/knowledge/knowledge' });
 const domainAvailable = (status = '') => /未注册|可注册|available|✅/i.test(status);
+const isFavorite = (item) => favoriteNames.value.includes(item.name);
+const isSelected = (item) => selectedName.value === item.name;
+const isCompared = (item) => compareItems.value.some(value => value.name === item.name);
+const toggleFavorite = (item) => { favoriteNames.value = isFavorite(item) ? favoriteNames.value.filter(name => name !== item.name) : [...favoriteNames.value, item.name]; uni.setStorageSync('favoriteNames', favoriteNames.value); };
+const toggleSelected = (item) => { selectedName.value = isSelected(item) ? '' : item.name; uni.setStorageSync('selectedName', selectedName.value); };
+const toggleCompare = (item) => {
+  if (isCompared(item)) return compareItems.value = compareItems.value.filter(value => value.name !== item.name);
+  if (compareItems.value.length >= 3) return uni.showToast({ title: '最多同时对比 3 个名字', icon: 'none' });
+  compareItems.value = [...compareItems.value, item];
+};
+const candidateScore = (item) => Number(item.score || item.overall_score || (domainAvailable(item.domain_status) ? 88 : 78));
+const domainChecks = (item) => {
+  const checks = item.domain_checks || item.domains;
+  if (Array.isArray(checks)) return checks.map(value => ({ domain: value.domain, suffix: value.suffix ? `.${String(value.suffix).replace('.', '')}` : `.${String(value.domain || '').split('.').pop()}`, status: value.check_status || value.status || '未知', available: domainAvailable(value.check_status || value.status) }));
+  if (!item.domain) return [];
+  return [{ domain: item.domain, suffix: `.${String(item.domain).split('.').pop()}`, status: item.domain_status || '查询中', available: domainAvailable(item.domain_status) }];
+};
+const riskLevel = (item, type) => item[`${type}_risk`]?.risk_level || item[`${type}_risk_level`] || 'unknown';
+const riskText = (item, type) => ({ low: '低风险', medium: '中风险', high: '高风险', unknown: '待检测' }[riskLevel(item, type)] || '待检测');
+const showComparison = () => uni.showModal({ title: '候选对比', content: compareItems.value.map(item => `${item.name}｜${candidateScore(item)} 分｜商标${riskText(item, 'trademark')}`).join('\n'), showCancel: false });
 const formatDate = (value) => value ? String(value).replace('T', ' ').slice(0, 16) : '';
 const formatFileSize = (bytes) => !bytes ? '未知大小' : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
@@ -257,6 +293,7 @@ const handleFeedback = async () => {
 <style scoped>
 .page { min-height: 100vh; padding: 34rpx 30rpx 100rpx; box-sizing: border-box; background: #f7f4ee; color: #24231f; }
 .topbar, .section-heading, .result-heading, .name-header, .field-row { display: flex; align-items: center; justify-content: space-between; }
+.top-actions { display: flex; gap: 24rpx; color: #685d4c; font-size: 24rpx; }
 .eyebrow { display: block; color: #8a6f42; font-size: 18rpx; letter-spacing: 4rpx; font-weight: 700; }
 .hello { margin-top: 8rpx; font-size: 32rpx; font-weight: 700; }
 .history-link { color: #685d4c; font-size: 26rpx; padding: 14rpx 0; }
@@ -315,6 +352,16 @@ button.generate-button[disabled] { color: #fff; background: #bdb5a8; box-shadow:
 .name-index { padding-top: 8rpx; color: #b9ad9c; font-family: serif; font-size: 22rpx; }
 .name-main { flex: 1; min-width: 0; }
 .name-text { font-family: serif; font-size: 43rpx; font-weight: 700; letter-spacing: 3rpx; }
+.score { color: #9a663d; font-size: 25rpx; font-weight: 700; }
+.candidate-actions,.risk-row,.domain-matrix { display: flex; flex-wrap: wrap; gap: 12rpx; }
+.candidate-actions { margin: 16rpx 0; }
+.action-chip { padding: 8rpx 16rpx; color: #7c7469; border-radius: 30rpx; background: #f3f0ea; font-size: 20rpx; }
+.action-chip.active { color: #99652d; background: #fff0d7; }.action-chip.selected { color: #fff; background: #496657; }
+.validation-block { margin: 18rpx 0; padding: 18rpx; border-radius: 14rpx; background: #faf8f4; }
+.validation-title { display: block; margin-bottom: 12rpx; color: #746b5e; font-size: 20rpx; }
+.domain-cell { display: flex; flex-direction: column; min-width: 100rpx; padding: 10rpx 14rpx; color: #98574d; border-radius: 10rpx; background: #f8e9e6; font-size: 18rpx; }.domain-cell.available { color: #357052; background: #e7f4ec; }
+.risk-row { margin-bottom: 18rpx; }.risk-pill { padding: 7rpx 13rpx; border-radius: 20rpx; font-size: 19rpx; }.risk-low { color: #357052; background: #e7f4ec; }.risk-medium { color: #94691b; background: #fff2d6; }.risk-high { color: #a64d43; background: #fae8e5; }.risk-unknown { color: #82796d; background: #eeeae3; }
+.compare-dock { position: sticky; bottom: 20rpx; z-index: 5; display: flex; align-items: center; justify-content: space-between; margin-top: 24rpx; padding: 20rpx 24rpx; color: #fff; border-radius: 18rpx; background: #2f493d; box-shadow: 0 12rpx 30rpx rgba(36,59,48,.25); }.compare-title,.compare-note { display: block; }.compare-title { font-weight: 700; }.compare-note { margin-top: 3rpx; color: rgba(255,255,255,.65); font-size: 18rpx; }.compare-dock button { margin: 0; color: #30483e; background: #fff; }
 .domain-pill { color: #9b564a; background: #fae9e4; }
 .domain-pill.available { color: #357052; background: #e6f3eb; }
 .dot { display: inline-block; width: 9rpx; height: 9rpx; margin-right: 8rpx; border-radius: 50%; background: currentColor; }

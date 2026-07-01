@@ -19,6 +19,10 @@
     {
       "path": "pages/history/detail",
       "style": { "navigationBarTitleText": "方案详情" }
+    },
+    {
+      "path": "pages/knowledge/knowledge",
+      "style": { "navigationBarTitleText": "企业知识库", "enablePullDownRefresh": true }
     }
   ],
   "globalStyle": {
