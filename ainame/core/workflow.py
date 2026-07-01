@@ -85,8 +85,11 @@ async def company_naming_node(state: WorkFlowState):
     search_query = state.get("other")
 
     # 1.查 通过用户的要求和useid查询语义数据库
-    rag_context =   retrive_user_from_knowledge(user_id,search_query)
-    # 2.用
+    try:
+        rag_context = retrive_user_from_knowledge(user_id, search_query)
+    except Exception as exc:
+        print(f"[RAG] failed to retrieve user knowledge for user_id={user_id}: {exc}")
+        rag_context = "用户知识库暂不可用，请仅根据用户本次输入进行命名。"    # 2.用
     prompt = f"""你是一位资深品牌命名顾问，擅长把行业属性、品牌调性、商业定位和用户私有知识库融合成可传播的商业品牌名。
 请为用户生成【恰好 5 个】企业/品牌名候选，每个名字都要像真实商业品牌，而不是普通描述词或口号。
 
@@ -120,11 +123,21 @@ async def company_naming_node(state: WorkFlowState):
     memory_list = [f"【{n.name}】寓意：{n.moral}" for n in response.names]
     names_str = "\n".join(memory_list)
 
-    tasks = [check_com_domain(n.domain) for n in response.names]
-    statuses = await asyncio.gather(*tasks)
+    try:
+        tasks = [check_com_domain(n.domain) for n in response.names]
+        statuses = await asyncio.wait_for(
+            asyncio.gather(*tasks, return_exceptions=True),
+            timeout=8
+        )
+    except Exception as exc:
+        print(f"[DOMAIN] failed to check domains: {exc}")
+        statuses = ["域名查询暂不可用"] * len(response.names)
 
     for n, status in zip(response.names, statuses):
-        n.domain_status = status
+        if isinstance(status, Exception):
+            n.domain_status = "域名查询暂不可用"
+        else:
+            n.domain_status = status
 
     # return {"final_output": response.model_dump()}
     #  "history_names": names_str}  主要是存到数据库，用来下次微调，从数据库中查询出来，给大模型，让他参考这些数据
