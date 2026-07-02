@@ -8,6 +8,7 @@ Create Date: 2026-07-02 00:00:00.000000
 from typing import Sequence, Union
 
 from alembic import op
+import os
 import sqlalchemy as sa
 from pwdlib import PasswordHash
 
@@ -19,7 +20,8 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
-ADMIN_EMAIL = "admin@ainame.local"
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL") or os.getenv("MAIL_USERNAME") or "admin@ainame.local"
+LEGACY_ADMIN_EMAIL = "admin@ainame.local"
 ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "Admin123456"
 
@@ -34,6 +36,20 @@ def upgrade() -> None:
         bind.execute(
             sa.text('update `user` set is_admin = 1, is_frozen = 0 where email = :email'),
             {"email": ADMIN_EMAIL},
+        )
+        return
+
+    legacy_admin = bind.execute(
+        sa.text('select id from `user` where email = :email'),
+        {"email": LEGACY_ADMIN_EMAIL},
+    ).first()
+    if legacy_admin:
+        bind.execute(
+            sa.text(
+                'update `user` set email = :email, username = :username, '
+                'is_admin = 1, is_frozen = 0 where email = :legacy_email'
+            ),
+            {"email": ADMIN_EMAIL, "username": ADMIN_USERNAME, "legacy_email": LEGACY_ADMIN_EMAIL},
         )
         return
 

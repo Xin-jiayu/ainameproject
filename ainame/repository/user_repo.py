@@ -91,32 +91,45 @@ class UserRepository():
         }
 
     async def update_user(self, user_id:int, data:dict):
-        async with self.session.begin():
+        try:
             user = await self.session.scalar(select(User).where(User.id == int(user_id)).with_for_update())
             if not user:
                 return None
             for key, value in data.items():
                 setattr(user, key, value)
+            await self.session.commit()
+            await self.session.refresh(user)
             return user
+        except Exception:
+            await self.session.rollback()
+            raise
 
     async def set_user_frozen(self, user_id:int, is_frozen:bool):
         return await self.update_user(user_id, {"is_frozen": is_frozen})
 
     async def reset_user_password(self, user_id:int, password:str):
-        async with self.session.begin():
+        try:
             user = await self.session.scalar(select(User).where(User.id == int(user_id)).with_for_update())
             if not user:
                 return None
             user.password = password
+            await self.session.commit()
             return user
+        except Exception:
+            await self.session.rollback()
+            raise
 
     async def delete_user(self, user_id:int):
-        async with self.session.begin():
+        try:
             user = await self.session.scalar(select(User).where(User.id == int(user_id)).with_for_update())
             if not user:
                 return None
             await self.session.delete(user)
+            await self.session.commit()
             return user
+        except Exception:
+            await self.session.rollback()
+            raise
 
     async def consume_free_quota(self, user_id:int):
         async with self.session.begin():
