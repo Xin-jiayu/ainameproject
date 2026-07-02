@@ -1,332 +1,286 @@
-﻿# 鎴愬憳 C 浜ゆ帴鏂囨。
+# 成员 C 交接文档
 
-## 1. 褰撳墠鑱岃矗鑼冨洿
+更新时间：2026-07-02
 
-鎴愬憳 C 璐熻矗 AI 宸ヤ綔娴併€丷AG 鐭ヨ瘑搴撴帴鍏ャ€丳rompt 璐ㄩ噺浼樺寲銆佽捣鍚嶅垎绫昏矾鐢便€佸弽棣堣蹇嗛摼璺拰鍩虹鏍￠獙閫昏緫銆?
+## 1. 职责范围
 
-涓嶅綊鎴愬憳 C 涓昏矗鐨勫唴瀹癸細
+成员 C 负责 AI 工作流、三类起名 Prompt、结构化输出、反馈记忆、企业 RAG 知识库接入、RabbitMQ 知识库文件消费流程，以及这些能力的轻量测试。
 
-- 鐢ㄦ埛琛ㄣ€侀搴﹀瓧娈点€佷笟鍔¤褰曡〃绛夋暟鎹簱缁撴瀯
-- Alembic 杩佺Щ缁存姢
-- 鐧诲綍娉ㄥ唽銆丣WT 閴存潈銆佸厤璐规鏁版墸鍑?
-- 鍓嶇椤甸潰甯冨眬鍜屼氦浜掍綋楠?
+不属于成员 C 主责：
 
-杩欎簺鍐呭鍒嗗埆鐢辨垚鍛?A 鍚庣/鏁版嵁搴撱€佹垚鍛?B 鍓嶇缁х画缁存姢銆?
+- 用户、额度、订单、管理员等业务表和权限体系。
+- Alembic 版本链维护。
+- 前端页面交互和样式。
+- 起名主流程异步化。当前只对知识库文件处理使用 RabbitMQ。
 
-## 2. 鏈疆瀹屾垚鍐呭
+## 2. 核心代码位置
 
-### 2.1 涓夌被璧峰悕璺敱纭
+- `ainame/core/workflow.py`：LangGraph 起名工作流、三类 Prompt、反馈规则、AI 输出兜底。
+- `ainame/schemas/name_schemas.py`：三类起名结果 schema、评分字段、风险字段。
+- `ainame/core/rag_service.py`：企业知识库检索、降级文案、检索内容截断。
+- `ainame/routers/name_router.py`：起名、反馈、历史记录接口。
+- `ainame/routers/rag_router.py`：知识库上传、列表、详情、删除、失败重试接口。
+- `ainame/rag_worker.py`：RabbitMQ 消费者，负责异步解析知识库文件。
+- `ainame/repository/knowledge_file_repo.py`：知识库文件状态、失败原因、重试次数更新。
 
-鏂囦欢锛?
+## 3. 三类起名工作流
 
-- `ainame/core/workflow.py`
-
-褰撳墠璺敱鍏崇郴锛?
-
-```text
-浜哄悕   -> human_naming_node
-浼佷笟鍚?-> company_naming_node
-瀹犵墿鍚?-> pet_naming_node
-```
-
-宸插鐞嗙偣锛?
-
-- 宸ヤ綔娴佽妭鐐瑰悕绉板拰璺敱杩斿洖鍊煎凡缁忓榻愩€?
-- 鏈煡 `category` 浼氭姏鍑烘槑纭敊璇紝涓嶅啀闈欓粯澶辫触銆?
-- 鍘熷厛缁撴潫杈归噷浼佷笟鑺傜偣鏈纭粨鏉熺殑闂宸茬粡淇銆?
-
-鏈煡鍒嗙被閿欒绀轰緥锛?
+当前路由：
 
 ```text
-鏈煡璧峰悕鍒嗙被: '娓告垙瑙掕壊'锛屽厑璁稿€? 浜哄悕銆佷紒涓氬悕銆佸疇鐗╁悕
+人名   -> human_naming_node
+企业名 -> company_naming_node
+宠物名 -> pet_naming_node
 ```
 
-### 2.2 thread_id 璁板繂閫昏緫纭
-
-鏂囦欢锛?
-
-- `ainame/core/workflow.py`
-- `ainame/routers/name_router.py`
-
-褰撳墠瑙勫垯锛?
-
-- `/names/generate` 棣栨鐢熸垚鏃跺垱寤烘柊鐨?`thread_id`
-- `thread_id` 浼氫紶鍏?LangGraph config锛?
-
-```python
-{"configurable": {"thread_id": thread_id}}
-```
-
-- `/names/feedback` 澶嶇敤鍓嶇浼犳潵鐨勬棫 `thread_id`
-- 鍙嶉鎺ュ彛浼氬厛鎸?`thread_id` 鏌ュ巻鍙茶褰曪紝鏌ヤ笉鍒板垯杩斿洖 404
-- 鍙嶉涓嶄細鏂板缓 `thread_id`
-
-鎴愬憳 B 鍓嶇蹇呴』淇濆瓨棣栨鐢熸垚杩斿洖鐨?`thread_id`锛屽悗缁弽棣堝師鏍蜂紶鍥炪€?
-
-### 2.3 浜哄悕 Prompt 浼樺寲
-
-鐩爣锛氭洿绋冲畾杈撳嚭 5 涓悕瀛楋紝鍖呭惈鍑哄銆佸瘬鎰忋€佽В閲娿€?
-
-褰撳墠瑕佹眰锛?
-
-- 鎭板ソ 5 涓€欓€?
-- 姣忎釜鍚嶅瓧蹇呴』鍖呭惈濮撴皬
-- `reference` 鍐欏嚭澶勬垨鐏垫劅鏉ユ簮
-- `moral` 鍚屾椂鍐欏瘬鎰忓拰瑙ｉ噴
-- 浜哄悕鍦烘櫙涓嶉渶瑕佸煙鍚嶏細
-  - `domain = ""`
-  - `domain_status = "涓嶉€傜敤"`
-
-### 2.4 浼佷笟鍚?Prompt 浼樺寲
-
-鐩爣锛氱粨鍚堣涓氥€佸搧鐗岃皟鎬с€佺煡璇嗗簱鍐呭锛岀敓鎴愭洿鍍忓晢涓氬搧鐗岀殑鍚嶅瓧銆?
-
-褰撳墠瑕佹眰锛?
-
-- 鎭板ソ 5 涓€欓€?
-- 缁撳悎琛屼笟銆佷笟鍔℃柟鍚戙€佺洰鏍囧缇ゃ€佸搧鐗岃皟鎬ф垨鏍稿績璇夋眰
-- 涓诲姩鍚告敹鐢ㄦ埛鐭ヨ瘑搴撻噷鐨勪骇鍝佺壒寰併€佷紒涓氳鍒欍€佸搧鐗岀蹇屻€佸叧閿瘝鍜屽樊寮傚寲鍗栫偣
-- 鍚嶅瓧瑕佸儚鐪熷疄鍟嗕笟鍝佺墝锛岃€屼笉鏄鏄庤瘝銆佹妧鏈弬鏁版垨鍙ｅ彿
-- `reference` 璇存槑鍒涙剰鏉ユ簮
-- `moral` 璇存槑鍝佺墝瀵撴剰鍜屽晢涓氳В閲?
-- `domain` 鐢熸垚绠€鐭?`.com` 鍩熷悕寤鸿
-- `domain_status` 鍏堝～鈥滄鍦ㄦ煡璇?..鈥濓紝鍚庣鍐嶇粺涓€瑕嗙洊
-
-### 2.5 瀹犵墿/IP Prompt 浼樺寲
-
-鐩爣锛氭洿鍙埍銆佹洿濂借銆佹洿鏈夌敾闈㈡劅銆?
-
-褰撳墠瑕佹眰锛?
-
-- 鎭板ソ 5 涓€欓€?
-- 鍚嶅瓧鍙埍銆侀『鍙ｃ€佸鏄撳懠鍞?
-- 浼樺厛 1-3 涓瓧
-- 鍙娇鐢ㄥ彔闊炽€佹樀绉版劅銆佸皬鍚嶆劅銆佹嫙澹版劅銆佽交寰弽宸悓
-- 缁撳悎姣涜壊銆佷綋鍨嬨€佸姩浣溿€佹€ф牸銆佷範鎯垨 IP 璁惧畾
-- 姣忎釜鍚嶅瓧閮借璁╀汉鑱旀兂鍒板叿浣撶敾闈?
-- 瀹犵墿/IP 鍦烘櫙涓嶉渶瑕佸煙鍚嶏細
-  - `domain = ""`
-  - `domain_status = "涓嶉€傜敤"`
-
-## 3. RAG 涓庝紒涓氱煡璇嗗簱璇存槑
-
-鐩稿叧鏂囦欢锛?
-
-- `ainame/routers/rag_router.py`
-- `ainame/core/rag_service.py`
-- `ainame/rag_worker.py`
-- `ainame/core/workflow.py`
-
-褰撳墠娴佺▼锛?
-
-1. 鍓嶇璋冪敤 `/knowledge/upload` 涓婁紶 TXT/PDF銆?
-2. 鍚庣淇濆瓨鏂囦欢骞跺垱寤?`knowledge_files` 璁板綍锛屽垵濮嬬姸鎬佷负 `pending`銆?
-3. 鍚庣鎶曢€?RabbitMQ 浠诲姟銆?
-4. `rag_worker.py` 娑堣垂浠诲姟骞舵瀯寤虹敤鎴蜂笓灞炵煡璇嗗簱銆?
-5. 浼佷笟璧峰悕鏃讹紝`company_naming_node` 浣跨敤 `user_id + other` 妫€绱㈢煡璇嗗簱鍐呭銆?
-6. 妫€绱㈢粨鏋滆繘鍏ヤ紒涓氬悕 Prompt銆?
-
-鎴愬憳 A 娉ㄦ剰锛?
-
-- RabbitMQ 蹇呴』鍚姩銆?
-- `knowledge_files` 琛ㄥ繀椤诲瓨鍦ㄣ€?
-- 涓婁紶鎺ュ彛瀛楁鍚嶅浐瀹氫负 `file`銆?
-- 鎴愬姛涓婁紶涓嶄唬琛ㄧ煡璇嗗簱宸茬粡鏋勫缓瀹屾垚锛屽彧浠ｈ〃浠诲姟宸插叆闃熴€?
-
-鎴愬憳 B 娉ㄦ剰锛?
-
-- 涓婁紶鎴愬姛鍚庝笉瑕佹彁绀衡€滃涔犲畬鎴愨€濓紝寤鸿鎻愮ず鈥滀笂浼犳垚鍔燂紝鍚庡彴澶勭悊涓€濄€?
-- 浼佷笟鍚嶇敓鎴愬墠锛屽鏋滃垰涓婁紶鏂囦欢锛屽彲鑳介渶瑕佺瓑寰?worker 瀹屾垚澶勭悊銆?
-
-## 4. 鍜屾垚鍛?A 鐨勪氦鎺ラ噸鐐?
-
-### 4.1 鏁版嵁搴撳拰杩佺Щ褰掑睘
-
-浠ヤ笅灞炰簬鎴愬憳 A 鑼冨洿锛?
-
-- `user.free_quota`
-- `usage_records`
-- `name_records`
-- `name_feedbacks`
-- `knowledge_files`
-- Alembic 鐗堟湰閾?
-- `alembic_version` 琛ㄧ淮鎶?
-
-鏈湴鑱旇皟鏃堕亣鍒拌繃鐨勯棶棰橈細
+前端可传：
 
 ```text
-Unknown column 'user.free_quota' in 'field list'
+person -> 人名
+brand  -> 企业名
+pet    -> 宠物名
 ```
 
-鍘熷洜锛氫唬鐮佹ā鍨嬪凡缁忔湁 `free_quota`锛屼絾 MySQL 琛ㄧ粨鏋勬湭鍗囩骇銆?
-
-褰撳墠鏈湴鏁版嵁搴撶姸鎬佸凡缁忔墽琛屽埌锛?
-
-```text
-9c2a1f7e4d8b
-```
-
-骞跺凡瀛樺湪锛?
-
-```text
-user
-email_code
-name_records
-name_feedbacks
-usage_records
-knowledge_files
-```
-
-璇存槑锛氳繖浜涜〃鍚庣画闇€瑕佷繚鐣欙紝褰撳墠涓嶈鍥為€€銆?
-
-### 4.2 鍚庣鎺ュ彛渚濊禆
-
-AI 宸ヤ綔娴佷緷璧栵細
-
-- `DEEPSEEK_API_KEY`
-- PostgreSQL LangGraph checkpointer锛屽綋鍓嶄唬鐮侀噷 `DB_URI = postgresql://postgres:123456@localhost:5432/ainame`
-- MySQL 涓氬姟搴擄紝鐢ㄤ簬鐢ㄦ埛銆佸巻鍙层€侀搴︺€佺煡璇嗗簱鏂囦欢璁板綍
-- RabbitMQ锛岀敤浜庣煡璇嗗簱寮傛浠诲姟
-- Redis锛岀敤浜庨獙璇佺爜
-
-娉ㄦ剰锛氬綋鍓?workflow 鍐呴儴鐨?LangGraph 璁板繂搴撹繛鎺ュ啓姝讳负 PostgreSQL 鍦板潃锛屽拰涓氬姟搴?`settings.DB_URI` 涓嶆槸鍚屼竴涓厤缃€傛垚鍛?A 鍚庣画鍙互鑰冭檻鎶婂畠涔熻縼鍒?`.env`銆?
-
-## 5. 鍜屾垚鍛?B 鐨勪氦鎺ラ噸鐐?
-
-### 5.1 璇锋眰鍦板潃
-
-褰撳墠鍓嶇璇锋眰鍦板潃搴斾负锛?
-
-```js
-const BASE_URL = "http://127.0.0.1:8000";
-```
-
-涔嬪墠鍙戠幇杩囧啓姝诲眬鍩熺綉鍦板潃瀵艰嚧鎺ュ彛鎵撲笉閫氾細
-
-```js
-http://192.168.1.91:8000
-```
-
-鏈満鑱旇皟鏃跺簲浣跨敤 `127.0.0.1:8000` 鎴?`localhost:8000`銆?
-
-### 5.2 鐧诲綍鍜?token
-
-`/names/generate`銆乣/names/feedback`銆乣/knowledge/upload` 閮介渶瑕侊細
+推荐入口：
 
 ```http
-Authorization: Bearer <token>
+POST /names/generate
+POST /names/feedback
 ```
 
-濡傛灉鍚庣鏃ュ織鍑虹幇锛?
+旧入口 `/names/get_names` 仍存在，但会生成 `legacy-*` 线程记录，不是推荐记忆链路。
 
-```text
-POST /names/generate 401 Unauthorized
-```
+## 4. 结果字段
 
-浼樺厛妫€鏌ワ細
+当前已经按 category 拆 schema：
 
-- 鏄惁鍏堢櫥褰?
-- token 鏄惁淇濆瓨鍒?`uni` storage
-- 璇锋眰澶存槸鍚︽惡甯?`Authorization`
+- `HumanNameSchema`
+- `CompanyNameSchema`
+- `PetNameSchema`
+- `NameSchema` 作为前端兼容超集
 
-### 5.3 鍓嶇蹇呴』浣跨敤鐨勫搷搴斿瓧娈?
-
-棣栨鐢熸垚鍝嶅簲锛?
-
-```json
-{
-  "thread_id": "...",
-  "record_id": 1,
-  "names": []
-}
-```
-
-鍙嶉鍝嶅簲锛?
-
-```json
-{
-  "thread_id": "...",
-  "record_id": 1,
-  "names": []
-}
-```
-
-`names` 涓瘡椤瑰瓧娈碉細
+前端仍可统一读取：
 
 ```json
 {
   "name": "",
   "reference": "",
   "moral": "",
-  "domain": "",
-  "domain_status": ""
+  "domain": null,
+  "domain_status": null,
+  "score": 88,
+  "score_detail": {},
+  "score_reason": "",
+  "risk_level": null,
+  "risk_reason": null
 }
 ```
 
-鍓嶇灞曠ず寤鸿锛?
+人名和宠物/IP 不强制 `domain`，后端会清空非企业名场景的 `domain/domain_status/risk_*`。
 
-- 浜哄悕锛氬睍绀?`name`銆乣reference`銆乣moral`锛涢殣钘忕┖ `domain`
-- 浼佷笟鍚嶏細灞曠ず `domain` 鍜?`domain_status`
-- 瀹犵墿/IP锛氬睍绀?`name`銆乣reference`銆乣moral`锛涢殣钘忕┖ `domain`
+企业名保留 `domain`、`domain_status`、`risk_level`、`risk_reason`、`score`、`score_detail`、`score_reason`。
 
-## 6. 娴嬭瘯璇存槑
+## 5. Prompt 与评分
 
-鏂板闈欐€?杞婚噺娴嬭瘯锛?
+人名：
+
+- 恰好 5 个候选。
+- 每个名字必须包含姓氏。
+- `reference` 写出处或灵感来源。
+- `moral` 同时写寓意和解释。
+- 评分重点：`phonology` 音韵、`meaning` 寓意、`surname_fit` 姓氏匹配。
+
+企业名：
+
+- 恰好 5 个候选。
+- 结合行业、业务方向、目标客群、品牌调性、核心诉求。
+- 如果知识库有结果，必须吸收产品特点、目标客群、核心卖点、品牌调性、禁忌词、企业规则、关键词或差异化定位。
+- 禁忌词必须作为命名避讳。
+- 评分重点：`brand_sense` 品牌感、`industry_fit` 行业匹配、`spreadability` 传播性、`differentiation` 差异化。
+
+宠物/IP：
+
+- 恰好 5 个候选。
+- 名字短小、可爱、顺口，适合日常呼喊。
+- 结合毛色、体型、动作、性格、习惯或 IP 设定。
+- 评分重点：`cuteness` 可爱度、`imagery` 画面感、`callability` 呼喊顺口度。
+
+## 6. 多轮反馈规则
+
+反馈接口：
+
+```http
+POST /names/feedback
+```
+
+请求示例：
+
+```json
+{
+  "thread_id": "...",
+  "category": "brand",
+  "feedback": "保留清新感，但名字更短一点"
+}
+```
+
+当前规则：
+
+- 反馈复用旧 `thread_id`，不会新建线程。
+- 后端按 `thread_id` 查询历史记录。
+- 后端把上一轮 `result_data` 格式化成 `history_names` 注入 workflow。
+- Prompt 先读取上一轮候选名，不把反馈当全新任务。
+- 保留用户没有否定的候选名特点。
+- 只修改用户指出的问题。
+- 反馈后仍然返回恰好 5 个候选名。
+
+## 7. AI 输出异常兜底
+
+当前规则：
+
+- 结构化输出无效时进入 JSON fallback。
+- JSON fallback 最多重试 3 次。
+- 每次重试 Prompt 都追加“只返回 JSON”。
+- AI 返回空列表时触发 fallback。
+- 数量多于 5 个时截断。
+- 数量少于 5 个时补齐。
+- 字段缺失时补默认值。
+- JSON 仍不可解析时抛 `NameGenerationError`。
+- 路由捕获 `NameGenerationError`，返回 502，避免直接 500。
+
+## 8. RAG 与企业知识库
+
+接口：
+
+```http
+POST /knowledge/upload
+GET /knowledge/files
+GET /knowledge/files/{file_id}
+DELETE /knowledge/files/{file_id}
+POST /knowledge/files/{file_id}/retry
+```
+
+上传流程：
+
+1. 前端上传 TXT/PDF，字段名固定为 `file`。
+2. 后端保存文件。
+3. 创建 `knowledge_files` 记录，初始状态 `pending`。
+4. 投递 RabbitMQ 队列 `rag_document_queue`。
+5. `rag_worker.py` 消费任务。
+6. Worker 调用 `process_and_stor_file(file_path, user_id)` 写入当前用户专属 Chroma collection。
+
+知识库 collection 名：
+
+```text
+user_{user_id}_docs
+```
+
+企业名检索时只检索当前用户自己的知识库。
+
+RAG 降级文案：
+
+- 未上传知识库：`用户尚未上传企业知识库，请根据用户当前输入和行业常识完成命名。`
+- 已上传但无相关结果：`用户已上传企业知识库，但本次未检索到相关内容，请根据用户当前输入和行业常识完成命名。`
+- 检索异常：`知识库检索服务暂时不可用，请根据用户当前输入和行业常识完成命名。`
+
+检索内容长度限制：
+
+- 单条文档最多 900 字符。
+- 总上下文最多 1800 字符。
+- 超长内容追加 `【内容过长已截断】`。
+
+## 9. RabbitMQ 消费与失败重试
+
+状态流转：
+
+```text
+pending -> processing -> completed
+pending -> processing -> failed
+failed  -> pending -> processing -> completed / failed
+```
+
+失败时：
+
+- `status = failed`
+- `error_message = str(e)`
+- `updated_at` 更新
+
+重试入口：
+
+```http
+POST /knowledge/files/{file_id}/retry
+```
+
+当前重试规则：
+
+- 只有 `failed` 状态可以重试。
+- `processing` 状态返回 409。
+- 本地文件不存在时返回 400。
+- 最大重试次数为 3。
+- 达到 3 次后返回：`文件处理失败次数已达到上限，请重新上传文件`。
+- 未达到上限时：
+  - `status -> pending`
+  - `error_message -> None`
+  - `retry_count + 1`
+  - `processed_at -> None`
+  - 重新投递 RabbitMQ。
+
+RabbitMQ 只用于知识库文件处理，不扩展到起名主流程异步化。
+
+## 10. 成员 A 交接点
+
+- `knowledge_files` 表字段必须存在：`status/error_message/retry_count/is_deleted/processed_at/deleted_at`。
+- Alembic 版本链需要保持一致。
+- RabbitMQ、MySQL、PostgreSQL、Redis、DeepSeek key 都需要在 `.env` 配好。
+- `LANGGRAPH_CHECKPOINT_DB_URI` 建议指向可用 PostgreSQL。
+- checkpoint 不可用时当前代码支持内存兜底，但线程记忆不会跨进程持久化。
+
+## 11. 成员 B 交接点
+
+前端必须保存：
+
+- `thread_id`
+- `record_id`
+
+起名、反馈、知识库接口都需要：
+
+```http
+Authorization: Bearer <token>
+```
+
+知识库上传成功后，不要提示“学习完成”，建议提示“上传成功，后台处理中”。
+
+知识库文件列表建议展示：
+
+- `status`
+- `error_message`
+- `retry_count`
+- 删除按钮
+- 失败时的重试按钮
+
+当 `retry_count >= 3` 时，前端应提示重新上传文件。
+
+## 12. 测试清单
+
+成员 C 相关测试：
 
 - `ainame/tests/test_workflow_routing.py`
 - `ainame/tests/test_thread_memory.py`
 - `ainame/tests/test_human_prompt.py`
 - `ainame/tests/test_company_prompt.py`
 - `ainame/tests/test_pet_prompt.py`
+- `ainame/tests/test_feedback_prompt_flow.py`
+- `ainame/tests/test_structured_output_contract.py`
+- `ainame/tests/test_workflow_llm_fallback.py`
+- `ainame/tests/test_rag_service_fallback.py`
+- `ainame/tests/test_knowledge_retry_policy.py`
+- `ainame/tests/test_checkpoint_settings.py`
 
-杩欎簺娴嬭瘯涓嶄細璋冪敤 DeepSeek銆丮ySQL銆丳ostgreSQL銆丷abbitMQ锛屼富瑕佺敤浜庨攣瀹氾細
+说明：部分测试只做 AST/Prompt/Schema 检查，不会真实调用 DeepSeek、RabbitMQ、MySQL 或 PostgreSQL。
 
-- 涓夌被 category 璺敱
-- 鏈煡 category 鏄庣‘鎶ラ敊
-- 棣栨鐢熸垚鏂板缓 `thread_id`
-- 鍙嶉澶嶇敤鏃?`thread_id`
-- 涓夌被 Prompt 鐨勫叧閿害鏉?
+## 13. 已知注意事项
 
-杩愯鏂瑰紡锛?
-
-```powershell
-cd D:\python\ainameproject
-conda run -n fastapi-env python -m unittest .\ainame\tests\test_pet_prompt.py .\ainame\tests\test_company_prompt.py .\ainame\tests\test_human_prompt.py .\ainame\tests\test_workflow_routing.py .\ainame\tests\test_thread_memory.py
-```
-
-鏈€杩戜竴娆＄粨鏋滐細
-
-```text
-Ran 10 tests ... OK
-```
-
-## 7. 褰撳墠宸茬煡娉ㄦ剰浜嬮」
-
-1. `settings` 宸叉敮鎸佽嚜鍔ㄥ姞杞?`ainame/.env`銆?
-2. `requirements.txt` 宸插姞鍏?`python-dotenv`銆?
-3. `docs/成员B接口调用示例.md` 宸叉暣鐞嗘帴鍙ｈ姹傚拰鍝嶅簲鏍蜂緥銆?
-4. 閮ㄥ垎鏃ф枃妗ｅ湪 Windows 缁堢閲屾樉绀轰贡鐮侊紝浣嗘枃浠舵湰韬寜椤圭洰鐜扮姸缁х画淇濈暀銆?
-5. `/names/get_names` 鏄棫鎺ュ彛锛屼細鐢熸垚 `legacy-*` 璁板綍锛屼笉鏄帹鑽愮殑璁板繂閾捐矾銆傚缓璁垚鍛?B 浣跨敤 `/names/generate`銆?
-6. 浼佷笟鍚嶄細鎵ц `.com` 鍩熷悕鏌ヨ锛岀綉缁滄垨 whois 鏈嶅姟涓嶇ǔ瀹氭椂鍙兘鎷栨參鍝嶅簲銆?
-
-## 8. 鍚庣画寤鸿
-
-缁欐垚鍛?A锛?
-
-- 灏?workflow 閲岀殑 PostgreSQL checkpoint `DB_URI` 鏀逛负浠?`.env` 璇诲彇銆?
-- 鏄庣‘ MySQL 涓?PostgreSQL 鐨勮亴璐ｈ竟鐣屻€?
-- 妫€鏌?Alembic 鐗堟湰閾撅紝閬垮厤鍐嶅嚭鐜版暟鎹簱璁板綍浜嗕笉瀛樺湪 revision 鐨勬儏鍐点€?
-- 缁?`/names/generate` 澧炲姞鏇村弸濂界殑寮傚父澶勭悊锛岄伩鍏?AI/RAG 澶栭儴渚濊禆澶辫触鏃剁洿鎺?500銆?
-
-缁欐垚鍛?B锛?
-
-- 鍚姩鏃跺鏋滄病鏈?token锛屽缓璁嚜鍔ㄨ烦杞櫥褰曢〉銆?
-- 浼佷笟鐭ヨ瘑搴撲笂浼犳垚鍔熷悗锛屾枃妗堟敼涓衡€滀笂浼犳垚鍔燂紝鍚庡彴澶勭悊涓€濄€?
-- 鍙嶉鎸夐挳鐐瑰嚮鍓嶇‘璁?`thread_id` 瀛樺湪锛屽惁鍒欐彁绀虹敤鎴峰厛鐢熸垚涓€娆°€?
-- 鎸?`docs/成员B接口调用示例.md` 鑱旇皟涓夋潯涓绘帴鍙ｃ€?
-
-缁欐垚鍛?C锛?
-
-- 鍚庣画鍙互缁х画浼樺寲鍙嶉鍦烘櫙 Prompt锛岃浜哄悕鍜屽疇鐗╁悕涔熻兘鏇村ソ鍒╃敤鍘嗗彶缁撴灉銆?
-- 浼佷笟鍚?RAG 鍙互鍔犲叆鐭ヨ瘑搴撲负绌烘椂鐨勯檷绾ф彁绀恒€?
-- 缁撴瀯鍖栬緭鍑哄彲鑰冭檻鎸変笉鍚?category 鎷?schema锛岄伩鍏嶄汉鍚?瀹犵墿鍚嶄篃琚揩甯?`domain` 瀛楁銆?
+1. 当前起名主流程仍是同步 HTTP 请求，尚未异步化。
+2. RabbitMQ 只负责知识库文件处理。
+3. 企业名会触发 `.com` 域名查询，外部网络不稳定时可能影响响应时间。
+4. `NameSchema` 是前端兼容超集，人名和宠物/IP 也能看到空的企业字段。
+5. Windows 终端偶尔会把旧中文文档显示成乱码，优先以 UTF-8 方式读取。
