@@ -1,4 +1,4 @@
-# 成员 C 交接文档
+﻿# 成员 C 交接文档
 
 更新时间：2026-07-02
 
@@ -11,7 +11,7 @@
 - 用户、额度、订单、管理员等业务表和权限体系。
 - Alembic 版本链维护。
 - 前端页面交互和样式。
-- 起名主流程异步化。当前只对知识库文件处理使用 RabbitMQ。
+- 起名主流程异步化已接入 RabbitMQ；当前 RabbitMQ 统一承接知识库、起名、邮件任务。
 
 ## 2. 核心代码位置
 
@@ -224,7 +224,7 @@ POST /knowledge/files/{file_id}/retry
   - `processed_at -> None`
   - 重新投递 RabbitMQ。
 
-RabbitMQ 只用于知识库文件处理，不扩展到起名主流程异步化。
+RabbitMQ 已作为统一异步任务队列，覆盖知识库文件处理、AI 起名任务和邮件发送任务。
 
 ## 10. 成员 A 交接点
 
@@ -279,8 +279,68 @@ Authorization: Bearer <token>
 
 ## 13. 已知注意事项
 
-1. 当前起名主流程仍是同步 HTTP 请求，尚未异步化。
-2. RabbitMQ 只负责知识库文件处理。
+1. 当前保留同步 `/names/generate` 兼容旧前端，同时新增 `/names/tasks` 异步提交和 `/names/tasks/{task_id}` 轮询查询。
+2. RabbitMQ 统一负责知识库文件、AI 起名和邮件发送任务。
 3. 企业名会触发 `.com` 域名查询，外部网络不稳定时可能影响响应时间。
 4. `NameSchema` 是前端兼容超集，人名和宠物/IP 也能看到空的企业字段。
 5. Windows 终端偶尔会把旧中文文档显示成乱码，优先以 UTF-8 方式读取。
+
+## 2026-07-02 最新架构更新
+
+当前项目已统一采用 RabbitMQ 作为异步任务队列。成员 C 后续需要关注 AI 工作流在异步 Worker 中的运行稳定性，而不是只关注知识库文件消费。
+
+当前 RabbitMQ 队列：
+
+```text
+rag_document_queue      -> 知识库文件解析，由 rag_worker.py 消费
+name_generation_queue   -> AI 起名任务，由 name_worker.py 消费
+email_queue             -> 验证码邮件/测试邮件，由 email_worker.py 消费
+```
+
+起名接口现状：
+
+```http
+POST /names/generate
+```
+
+仍然保留，用于兼容旧前端同步调用。
+
+推荐新前端使用：
+
+```http
+POST /names/tasks
+GET /names/tasks/{task_id}
+```
+
+异步起名流程：
+
+```text
+前端提交 /names/tasks
+  -> NameService 扣减额度
+  -> 创建 name_tasks 记录，状态 pending
+  -> 投递 RabbitMQ name_generation_queue
+  -> 立即返回 task_id
+  -> name_worker.py 调用 DeepSeek / LangGraph
+  -> 写入 name_records
+  -> 写入 name_candidates
+  -> 更新 name_tasks 为 success / failed
+  -> 前端轮询 /names/tasks/{task_id}
+```
+
+相关后端文件：
+
+- `ainame/services/ai_service.py`
+- `ainame/services/name_service.py`
+- `ainame/services/email_service.py`
+- `ainame/name_worker.py`
+- `ainame/email_worker.py`
+- `ainame/repository/name_task_repo.py`
+- `ainame/alembictable/versions/a4c9e2d7f6b1_add_name_tasks.py`
+
+注意事项：
+
+- 需要执行 `alembic upgrade head` 创建 `name_tasks` 表。
+- RabbitMQ 必须启动，否则 `/names/tasks` 和 `/auth/code` 的任务投递会失败。
+- `pytest ainame\tests -q` 当前通过：`55 passed, 1 warning`。
+- warning 来自 `langchain-community` 弃用提示，不影响当前测试通过。
+

@@ -198,6 +198,31 @@ class NameSchemaWithThreadOut(BaseModel):
     record_id: int | None = None
 
 
+class NameTaskSubmitOut(BaseModel):
+    task_id: str
+    status: str
+    message: str = "任务已提交"
+
+
+class NameTaskOut(BaseModel):
+    task_id: str
+    status: str
+    category: str
+    record_id: int | None = None
+    thread_id: str | None = None
+    result_data: dict[str, Any] | None = None
+    error_message: str | None = None
+    retry_count: int = 0
+    before_quota: int | None = None
+    after_quota: int | None = None
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 # 为了调整需求，开发一个接收参数的类
 class FeedbackSchema(BaseModel):
     thread_id: str = Field(...)

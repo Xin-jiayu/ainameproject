@@ -37,6 +37,28 @@ class NameRecord(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
 
 
+class NameTask(Base):
+    __tablename__ = "name_tasks"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    task_id: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("user.id"), index=True)
+    record_id: Mapped[int | None] = mapped_column(ForeignKey("name_records.id"), nullable=True, index=True)
+    category: Mapped[str] = mapped_column(String(20), index=True)
+    input_data: Mapped[dict[str, Any]] = mapped_column(JSON)
+    status: Mapped[str] = mapped_column(String(20), default="pending", server_default="pending", index=True)
+    result_data: Mapped[dict[str, Any] | None] = mapped_column(JSON, nullable=True)
+    thread_id: Mapped[str | None] = mapped_column(String(100), nullable=True, index=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    retry_count: Mapped[int] = mapped_column(Integer, default=0, server_default="0")
+    before_quota: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    after_quota: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=datetime.now, onupdate=datetime.now)
+
+
 class NameFeedback(Base):
     __tablename__ = "name_feedbacks"
 

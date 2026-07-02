@@ -11,7 +11,7 @@
 - 用户、额度、订单、管理员等业务表和权限体系。
 - Alembic 版本链维护。
 - 前端页面交互和样式。
-- 起名主流程异步化。当前只对知识库文件处理使用 RabbitMQ。
+- 起名主流程异步化已接入 RabbitMQ；当前 RabbitMQ 统一承接知识库、起名、邮件任务。
 
 ## 2. 核心代码位置
 
@@ -281,7 +281,7 @@ POST /knowledge/files/{file_id}/retry
   - `processed_at -> None`
   - 重新投递 RabbitMQ。
 
-注意：这套 RabbitMQ 机制只用于知识库文件处理，不扩展到起名主流程异步化。
+注意：RabbitMQ 已作为统一异步任务队列，覆盖知识库文件处理、AI 起名任务和邮件发送任务。
 
 ## 11. 成员 A 交接点
 
@@ -367,8 +367,8 @@ conda run --no-capture-output -n fastapi-env python -m pytest `
 
 ## 14. 已知注意事项
 
-1. 当前起名主流程仍是同步 HTTP 请求，尚未异步化。
-2. RabbitMQ 只负责知识库文件处理。
+1. 当前保留同步 `/names/generate` 兼容旧前端，同时新增 `/names/tasks` 异步提交和 `/names/tasks/{task_id}` 轮询查询。
+2. RabbitMQ 统一负责知识库文件、AI 起名和邮件发送任务。
 3. 企业名会触发 `.com` 域名查询，外部网络不稳定时可能影响响应时间。
 4. `NameSchema` 是前端兼容超集，人名和宠物/IP 也能看到空的企业字段。
 5. `docs/成员C交接文档.md` 与本文件应保持内容同步。
@@ -377,6 +377,6 @@ conda run --no-capture-output -n fastapi-env python -m pytest `
 ## 15. 后续建议
 
 - 继续补充真实端到端联调记录，尤其是 RabbitMQ worker 启动和知识库上传。
-- 如果起名响应时间成为瓶颈，再单独设计起名任务异步化，不要混入当前知识库 RabbitMQ 流程。
+- 起名任务已经独立进入 `name_generation_queue`，后续重点是 Worker 部署、失败重试和任务补偿。
 - 可为 RAG 文件处理增加更细的失败分类，例如文件格式错误、解析失败、Embedding 服务不可用、Chroma 写入失败。
 - 可为企业名风险字段接入真实商标/社媒校验结果，而不是只保留初步风险说明。

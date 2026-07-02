@@ -5,7 +5,7 @@ from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 WORKFLOW_PATH = PROJECT_ROOT / "core" / "workflow.py"
-ROUTER_PATH = PROJECT_ROOT / "routers" / "name_router.py"
+SERVICE_PATH = PROJECT_ROOT / "services" / "name_service.py"
 
 
 def _parse(path: Path):
@@ -15,7 +15,7 @@ def _parse(path: Path):
 def _find_async_function(module: ast.Module, name: str) -> ast.AsyncFunctionDef:
     return next(
         node
-        for node in module.body
+        for node in ast.walk(module)
         if isinstance(node, ast.AsyncFunctionDef) and node.name == name
     )
 
@@ -106,8 +106,8 @@ class ThreadMemoryTest(unittest.TestCase):
         self.assertEqual(thread_id_assignments, [])
 
     def test_generate_route_persists_and_returns_generated_thread_id(self):
-        router = _parse(ROUTER_PATH)
-        generate_names = _find_async_function(router, "generate_names")
+        service = _parse(SERVICE_PATH)
+        generate_names = _find_async_function(service, "generate_names")
 
         create_record_calls = [
             node
@@ -143,8 +143,8 @@ class ThreadMemoryTest(unittest.TestCase):
         self.assertEqual(ast.unparse(response_thread_ids[0]), "result['thread_id']")
 
     def test_feedback_route_loads_record_by_old_thread_id_and_returns_same_thread_id(self):
-        router = _parse(ROUTER_PATH)
-        feedback = _find_async_function(router, "feedback")
+        service = _parse(SERVICE_PATH)
+        feedback = _find_async_function(service, "feedback")
 
         lookup_calls = [
             node
@@ -160,8 +160,8 @@ class ThreadMemoryTest(unittest.TestCase):
             node
             for node in ast.walk(feedback)
             if isinstance(node, ast.Call)
-            and isinstance(node.func, ast.Name)
-            and node.func.id == "feedback_names"
+            and isinstance(node.func, ast.Attribute)
+            and node.func.attr == "feedback_names"
         ]
         self.assertEqual(len(feedback_calls), 1)
         self.assertEqual(ast.unparse(feedback_calls[0].args[0]), "data")
