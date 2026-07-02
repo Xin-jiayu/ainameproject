@@ -27,6 +27,20 @@ def _load_prompt_template(function_name: str) -> str:
     )
 
 
+def _load_score_instruction_source() -> str:
+    module = ast.parse(WORKFLOW_PATH.read_text(encoding="utf-8"))
+    score_function = next(
+        node
+        for node in module.body
+        if isinstance(node, ast.FunctionDef) and node.name == "_build_score_output_instruction"
+    )
+    return "\n".join(
+        node.value
+        for node in ast.walk(score_function)
+        if isinstance(node, ast.Constant) and isinstance(node.value, str)
+    )
+
+
 class PetPromptTest(unittest.TestCase):
     def test_pet_prompt_emphasizes_cute_memorable_visual_names(self):
         prompt = _load_prompt_template("pet_naming_node")
@@ -40,6 +54,16 @@ class PetPromptTest(unittest.TestCase):
         self.assertIn("moral：写清名字的可爱点、画面感和适合呼唤/传播的理由", prompt)
         self.assertIn("domain：宠物/IP 场景不需要真实域名", prompt)
         self.assertIn("domain_status：宠物/IP 场景不需要域名查询", prompt)
+
+    def test_pet_score_instruction_covers_cuteness_imagery_and_callability(self):
+        score_instruction = _load_score_instruction_source()
+
+        self.assertIn("可爱度 30%", score_instruction)
+        self.assertIn("画面感 30%", score_instruction)
+        self.assertIn("呼喊顺口度 25%", score_instruction)
+        self.assertIn("cuteness", score_instruction)
+        self.assertIn("imagery", score_instruction)
+        self.assertIn("callability", score_instruction)
 
 
 if __name__ == "__main__":

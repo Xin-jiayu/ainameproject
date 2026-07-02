@@ -23,7 +23,8 @@ def get_bool_env(name: str, default: bool) -> bool:
     return value.lower() in {"1", "true", "yes", "on"}
 
 
-DB_URI = get_required_env("DB_URI")
+DEFAULT_DB_URI = "mysql+aiomysql://root:password@localhost:3306/ainame?charset=utf8mb4"
+DB_URI = os.getenv("DB_URI", DEFAULT_DB_URI)
 
 MAIL_USERNAME = get_required_env("MAIL_USERNAME")
 MAIL_PASSWORD = get_required_env("MAIL_PASSWORD")
@@ -41,7 +42,17 @@ JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=int(os.getenv("JWT_REFRESH_TOKEN_EXPI
 RABBITMQ_URL = get_required_env("RABBITMQ_URL")
 REDIS_URL = get_required_env("REDIS_URL")
 DEEPSEEK_API_KEY = get_required_env("DEEPSEEK_API_KEY")
-POSTGRES_MEMORY_DB_URI = get_required_env("POSTGRES_MEMORY_DB_URI")
+POSTGRES_MEMORY_DB_URI = os.getenv(
+    "POSTGRES_MEMORY_DB_URI",
+    "postgresql://postgres:123456@localhost:5432/ainame",
+)
+
+# LangGraph memory/checkpoint storage.
+# DB_URI is the MySQL business database; LANGGRAPH_CHECKPOINT_DB_URI is a separate
+# PostgreSQL database used only for LangGraph thread memory.
+LANGGRAPH_CHECKPOINT_DB_URI = os.getenv("LANGGRAPH_CHECKPOINT_DB_URI", POSTGRES_MEMORY_DB_URI)
+LANGGRAPH_CHECKPOINT_CONNECT_TIMEOUT = float(os.getenv("LANGGRAPH_CHECKPOINT_CONNECT_TIMEOUT", "10"))
+LANGGRAPH_CHECKPOINT_FALLBACK_TO_MEMORY = get_bool_env("LANGGRAPH_CHECKPOINT_FALLBACK_TO_MEMORY", True)
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 REQUEST_SLOW_MS = int(os.getenv("REQUEST_SLOW_MS", "1000"))

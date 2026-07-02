@@ -66,16 +66,20 @@ class FeedbackPromptFlowTest(unittest.IsolatedAsyncioTestCase):
             workflow.pet_naming_node,
         ):
             fake_llm = CapturingStructuredLLM()
-            with patch.object(workflow, "structured_llm", fake_llm):
-                with patch.object(workflow, "retrive_user_from_knowledge", return_value="no knowledge"):
-                    await node(state)
+            with patch.object(workflow, "llm", object()):
+                with patch.object(workflow, "structured_llm", fake_llm):
+                    with patch.object(workflow, "retrive_user_from_knowledge", return_value="no knowledge"):
+                        await node(state)
 
             prompt = fake_llm.prompts[-1]
-            self.assertIn("上一轮生成结果", prompt)
+            self.assertIn("多轮反馈优化规则", prompt)
+            self.assertIn("上一轮历史结果", prompt)
             self.assertIn("OldName meaning", prompt)
             self.assertIn("make the names softer", prompt)
-            self.assertIn("保留上一轮中用户满意的部分", prompt)
+            self.assertIn("保留用户没有否定的候选名特点", prompt)
             self.assertIn("只修改用户指出的问题", prompt)
+            self.assertIn("人名、企业名、宠物/IP 三类都必须参考上一轮历史结果", prompt)
+            self.assertIn("反馈后仍然必须返回【恰好 5 个】候选名", prompt)
 
     async def test_feedback_keeps_same_thread_id_for_all_categories(self):
         original_graph = workflow.naming_graph
@@ -93,6 +97,7 @@ class FeedbackPromptFlowTest(unittest.IsolatedAsyncioTestCase):
                     thread_id=first["thread_id"],
                     category=category,
                     feedback="make it softer",
+                    history_names="previous five names",
                 ),
                 user_id=1,
             )
@@ -102,6 +107,11 @@ class FeedbackPromptFlowTest(unittest.IsolatedAsyncioTestCase):
         configs = [call["config"]["configurable"]["thread_id"] for call in fake_graph.calls]
         for index in range(0, len(configs), 2):
             self.assertEqual(configs[index + 1], configs[index])
+
+        feedback_states = [call["state"] for call in fake_graph.calls[1::2]]
+        for state in feedback_states:
+            self.assertEqual(state["history_names"], "previous five names")
+            self.assertEqual(state["feedback"], "make it softer")
 
 
 if __name__ == "__main__":

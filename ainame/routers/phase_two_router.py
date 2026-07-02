@@ -82,7 +82,13 @@ async def update_candidate_score(
     session: AsyncSession = Depends(get_session),
 ):
     repository = PhaseTwoRepository(session=session)
-    candidate = await repository.update_candidate_score(user_id, candidate_id, data.score)
+    candidate = await repository.update_candidate_score(
+        user_id,
+        candidate_id,
+        data.score,
+        data.score_detail,
+        data.score_reason,
+    )
     if not candidate:
         raise HTTPException(status_code=404, detail="candidate not found")
     return candidate

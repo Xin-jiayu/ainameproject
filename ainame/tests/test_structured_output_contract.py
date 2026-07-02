@@ -12,7 +12,7 @@ DETAIL_PAGE_PATH = PROJECT_ROOT.parent / "ainameapp" / "pages" / "history" / "de
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from schemas.name_schemas import NameSchema
+from schemas.name_schemas import CompanyNameSchema, HumanNameSchema, NameSchema, PetNameSchema
 
 
 def _parse_workflow():
@@ -40,10 +40,62 @@ class StructuredOutputContractTest(unittest.TestCase):
     def test_keeps_single_name_schema_contract(self):
         self.assertEqual(
             set(NameSchema.model_fields),
-            {"name", "reference", "moral", "domain", "domain_status"},
+            {
+                "name",
+                "reference",
+                "moral",
+                "domain",
+                "domain_status",
+                "score",
+                "score_detail",
+                "score_reason",
+                "risk_level",
+                "risk_reason",
+            },
         )
         self.assertFalse(NameSchema.model_fields["domain"].is_required())
         self.assertFalse(NameSchema.model_fields["domain_status"].is_required())
+        self.assertFalse(NameSchema.model_fields["score"].is_required())
+        self.assertFalse(NameSchema.model_fields["score_detail"].is_required())
+        self.assertFalse(NameSchema.model_fields["score_reason"].is_required())
+        self.assertFalse(NameSchema.model_fields["risk_level"].is_required())
+        self.assertFalse(NameSchema.model_fields["risk_reason"].is_required())
+
+    def test_category_specific_schema_drafts_keep_frontend_compatibility(self):
+        self.assertFalse(HumanNameSchema.model_fields["domain"].is_required())
+        self.assertFalse(HumanNameSchema.model_fields["domain_status"].is_required())
+        self.assertFalse(PetNameSchema.model_fields["domain"].is_required())
+        self.assertFalse(PetNameSchema.model_fields["domain_status"].is_required())
+
+        self.assertTrue(CompanyNameSchema.model_fields["domain"].is_required())
+        self.assertTrue(CompanyNameSchema.model_fields["score"].is_required())
+        self.assertTrue(CompanyNameSchema.model_fields["score_detail"].is_required())
+        self.assertTrue(CompanyNameSchema.model_fields["score_reason"].is_required())
+        self.assertIn("risk_level", CompanyNameSchema.model_fields)
+        self.assertIn("risk_reason", CompanyNameSchema.model_fields)
+
+    def test_score_detail_calculates_composite_score(self):
+        name = NameSchema(
+            name="星澜",
+            reference="品牌定位",
+            moral="有探索感和品质感",
+            score_detail={
+                "brand_sense": 90,
+                "memorability": 80,
+                "differentiation": 70,
+                "fit": 100,
+                "spreadability": 60,
+            },
+        )
+
+        self.assertEqual(name.score, 82)
+
+    def test_workflow_appends_score_output_instruction(self):
+        workflow = _parse_workflow()
+
+        self.assertTrue(_calls_function(_find_function(workflow, "human_naming_node"), "_build_score_output_instruction"))
+        self.assertTrue(_calls_function(_find_function(workflow, "company_naming_node"), "_build_score_output_instruction"))
+        self.assertTrue(_calls_function(_find_function(workflow, "pet_naming_node"), "_build_score_output_instruction"))
 
     def test_non_company_nodes_clear_domain_fields(self):
         workflow = _parse_workflow()

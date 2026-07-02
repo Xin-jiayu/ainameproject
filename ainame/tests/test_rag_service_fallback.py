@@ -11,6 +11,11 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from core import rag_service
 
 
+class FakeDoc:
+    def __init__(self, page_content):
+        self.page_content = page_content
+
+
 class RagServiceFallbackTest(unittest.TestCase):
     def test_missing_collection_returns_not_uploaded_message(self):
         with TemporaryDirectory() as temp_dir:
@@ -46,6 +51,33 @@ class RagServiceFallbackTest(unittest.TestCase):
                     result = rag_service.retrive_user_from_knowledge(123, "\u73af\u4fdd\u65b0\u6750\u6599")
 
         self.assertIn("\u77e5\u8bc6\u5e93\u68c0\u7d22\u670d\u52a1\u6682\u65f6\u4e0d\u53ef\u7528", result)
+
+    def test_retrieval_uses_current_user_collection_only(self):
+        captured = {}
+
+        class FakeChroma:
+            def __init__(self, **kwargs):
+                captured.update(kwargs)
+
+            def similarity_search(self, query, k=2):
+                return [FakeDoc("产品特点：环保材料。品牌调性：可信赖。禁忌词：速成。")]
+
+        with patch.object(rag_service, "RAG_IMPORT_ERROR", None):
+            with patch.object(rag_service, "_collection_exists", return_value=True):
+                with patch.object(rag_service, "Chroma", FakeChroma):
+                    result = rag_service.retrive_user_from_knowledge(456, "环保新材料")
+
+        self.assertEqual(captured["collection_name"], "user_456_docs")
+        self.assertIn("已检索当前登录用户自己的企业知识库", result)
+        self.assertIn("产品特点：环保材料", result)
+
+    def test_long_retrieval_content_is_truncated(self):
+        long_text = "产品特点：" + "高性能材料" * 500
+
+        result = rag_service._format_retrieved_context(123, [FakeDoc(long_text)])
+
+        self.assertLessEqual(len(result), rag_service.RAG_MAX_TOTAL_CHARS + 120)
+        self.assertIn("内容过长已截断", result)
 
 
 if __name__ == "__main__":

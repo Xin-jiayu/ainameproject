@@ -17,6 +17,12 @@ from models.business import (
 from models.user import User
 
 
+def _json_dict(value):
+    if hasattr(value, "model_dump"):
+        return value.model_dump()
+    return value
+
+
 class PhaseTwoRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
@@ -36,6 +42,10 @@ class PhaseTwoRepository:
                 domain=item.get("domain"),
                 domain_status=item.get("domain_status"),
                 score=item.get("score"),
+                score_detail=_json_dict(item.get("score_detail")),
+                score_reason=item.get("score_reason"),
+                risk_level=item.get("risk_level"),
+                risk_reason=item.get("risk_reason"),
             )
             self.session.add(candidate)
             candidates.append(candidate)
@@ -99,11 +109,22 @@ class PhaseTwoRepository:
         await self.session.refresh(candidate)
         return candidate
 
-    async def update_candidate_score(self, user_id: int, candidate_id: int, score: int):
+    async def update_candidate_score(
+        self,
+        user_id: int,
+        candidate_id: int,
+        score: int,
+        score_detail: dict[str, int] | None = None,
+        score_reason: str | None = None,
+    ):
         candidate = await self.get_candidate_for_user(user_id, candidate_id)
         if not candidate:
             return None
         candidate.score = score
+        if score_detail is not None:
+            candidate.score_detail = _json_dict(score_detail)
+        if score_reason is not None:
+            candidate.score_reason = score_reason
         await self.session.commit()
         await self.session.refresh(candidate)
         return candidate

@@ -23,6 +23,11 @@ os.makedirs(UPLOAD_DIR, exist_ok=True)
 # RabbitMQ 连接配置 协议://用户名:密码@主机地址:端口号
 RABBITMQ_URL = settings.RABBITMQ_URL
 QUEUE_NAME = "rag_document_queue"
+MAX_KNOWLEDGE_FILE_RETRY_COUNT = 3
+
+
+def has_reached_retry_limit(knowledge_file) -> bool:
+    return (knowledge_file.retry_count or 0) >= MAX_KNOWLEDGE_FILE_RETRY_COUNT
 
 
 async def send_to_queue(message_dict: dict):
@@ -140,6 +145,8 @@ async def retry_knowledge_file(
         raise HTTPException(status_code=409, detail="knowledge file is processing")
     if knowledge_file.status != "failed":
         raise HTTPException(status_code=400, detail="only failed knowledge files can retry")
+    if has_reached_retry_limit(knowledge_file):
+        raise HTTPException(status_code=400, detail="文件处理失败次数已达到上限，请重新上传文件")
     if not os.path.exists(knowledge_file.file_path):
         raise HTTPException(status_code=400, detail="local file does not exist")
 

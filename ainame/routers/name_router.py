@@ -62,6 +62,26 @@ async def save_candidates(session: AsyncSession, record_id: int, result_data: di
     return await phase_two_repository.create_candidates_from_result(record_id, result_data)
 
 
+def format_feedback_history(result_data: dict | None) -> str:
+    if not isinstance(result_data, dict):
+        return ""
+
+    names = result_data.get("names") or []
+    lines = []
+    for index, item in enumerate(names[:5], start=1):
+        if not isinstance(item, dict) or not item.get("name"):
+            continue
+        parts = [f"{index}. 【{item.get('name')}】"]
+        if item.get("reference"):
+            parts.append(f"来源：{item.get('reference')}")
+        if item.get("moral"):
+            parts.append(f"寓意：{item.get('moral')}")
+        if item.get("score_reason"):
+            parts.append(f"评分理由：{item.get('score_reason')}")
+        lines.append("；".join(parts))
+    return "\n".join(lines)
+
+
 # user_id: int = Depends(auth_handler.auth_access_dependency) 用户登录校验，如果没有登录，无法访问
 @router.post("/get_names", response_model=NameOutSchema)
 async def get_names(name_info: NameIn,
@@ -176,6 +196,8 @@ async def feedback(data:FeedbackSchema,
         raise HTTPException(status_code=404, detail="起名记录不存在，无法继续优化")
     if not data.category:
         data.category = record.category
+    if not data.history_names:
+        data.history_names = format_feedback_history(record.result_data)
 
     await init_graph()
     try:

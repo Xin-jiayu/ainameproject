@@ -1,10 +1,106 @@
 from datetime import datetime
-from typing import Annotated, Any, List, Literal
+from typing import Annotated, Any, List, Literal, TypeAlias
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
-class NameSchema(BaseModel):
+RiskLevel: TypeAlias = Literal["low", "medium", "high", "unknown"]
+
+
+class ScoreDetailSchema(BaseModel):
+    brand_sense: int = Field(..., ge=0, le=100, description="品牌感/命名质感")
+    memorability: int = Field(..., ge=0, le=100, description="记忆度")
+    differentiation: int = Field(..., ge=0, le=100, description="差异化")
+    fit: int = Field(..., ge=0, le=100, description="匹配度")
+    spreadability: int = Field(..., ge=0, le=100, description="可传播性")
+    phonology: int | None = Field(default=None, ge=0, le=100, description="人名专用：音韵顺口度")
+    meaning: int | None = Field(default=None, ge=0, le=100, description="人名专用：寓意质量")
+    surname_fit: int | None = Field(default=None, ge=0, le=100, description="人名专用：姓氏匹配度")
+    industry_fit: int | None = Field(default=None, ge=0, le=100, description="企业名专用：行业匹配度")
+    cuteness: int | None = Field(default=None, ge=0, le=100, description="宠物/IP 专用：可爱度")
+    imagery: int | None = Field(default=None, ge=0, le=100, description="宠物/IP 专用：画面感")
+    callability: int | None = Field(default=None, ge=0, le=100, description="宠物/IP 专用：呼喊顺口度")
+
+
+def _score_detail_to_dict(value: ScoreDetailSchema | dict[str, int] | None) -> dict[str, int] | None:
+    if value is None:
+        return None
+    if isinstance(value, ScoreDetailSchema):
+        return value.model_dump()
+    return value
+
+
+def _calculate_composite_score(score_detail: ScoreDetailSchema | dict[str, int] | None) -> int | None:
+    detail = _score_detail_to_dict(score_detail)
+    if not detail:
+        return None
+    weights = {
+        "brand_sense": 0.2,
+        "memorability": 0.2,
+        "differentiation": 0.2,
+        "fit": 0.25,
+        "spreadability": 0.15,
+    }
+    return round(sum(max(0, min(100, int(detail.get(key, 0)))) * weight for key, weight in weights.items()))
+
+
+class BaseNameCandidateSchema(BaseModel):
+    name: Annotated[str, Field(..., description="候选名")]
+    reference: Annotated[str, Field(..., description="出处、灵感来源或命名依据")]
+    moral: Annotated[str, Field(..., description="寓意与解释")]
+
+
+class HumanNameSchema(BaseNameCandidateSchema):
+    domain: str | None = Field(default=None, description="兼容前端字段；人名场景不强制域名")
+    domain_status: str | None = Field(default=None, description="兼容前端字段；人名场景不强制域名状态")
+    score: int | None = Field(default=None, ge=0, le=100, description="兼容前端字段；综合评分，0-100")
+    score_detail: ScoreDetailSchema | None = Field(default=None, description="兼容前端字段；评分明细")
+    score_reason: str | None = Field(default=None, description="兼容前端字段；评分理由")
+    risk_level: RiskLevel | None = Field(default=None, description="兼容前端字段；人名场景可为空")
+    risk_reason: str | None = Field(default=None, description="兼容前端字段；人名场景可为空")
+
+    @model_validator(mode="after")
+    def fill_score_from_detail(self):
+        if self.score is None:
+            self.score = _calculate_composite_score(self.score_detail)
+        return self
+
+
+class PetNameSchema(BaseNameCandidateSchema):
+    domain: str | None = Field(default=None, description="兼容前端字段；宠物/IP 场景不强制域名")
+    domain_status: str | None = Field(default=None, description="兼容前端字段；宠物/IP 场景不强制域名状态")
+    score: int | None = Field(default=None, ge=0, le=100, description="兼容前端字段；综合评分，0-100")
+    score_detail: ScoreDetailSchema | None = Field(default=None, description="兼容前端字段；评分明细")
+    score_reason: str | None = Field(default=None, description="兼容前端字段；评分理由")
+    risk_level: RiskLevel | None = Field(default=None, description="兼容前端字段；宠物/IP 场景可为空")
+    risk_reason: str | None = Field(default=None, description="兼容前端字段；宠物/IP 场景可为空")
+
+    @model_validator(mode="after")
+    def fill_score_from_detail(self):
+        if self.score is None:
+            self.score = _calculate_composite_score(self.score_detail)
+        return self
+
+
+class CompanyNameSchema(BaseNameCandidateSchema):
+    domain: str = Field(..., description="为品牌设计的纯小写.com域名，例如：astar.com")
+    domain_status: str | None = Field(default=None, description="域名注册状态")
+    risk_level: RiskLevel | None = Field(default="unknown", description="初步命名风险等级")
+    risk_reason: str | None = Field(default=None, description="初步风险说明")
+    score: int = Field(..., ge=0, le=100, description="综合评分，0-100")
+    score_detail: ScoreDetailSchema = Field(..., description="可解释评分维度，每项 0-100")
+    score_reason: str = Field(..., description="评分理由")
+
+    @model_validator(mode="after")
+    def fill_score_from_detail(self):
+        if self.score is None:
+            self.score = _calculate_composite_score(self.score_detail)
+        return self
+
+
+class NameSchema(HumanNameSchema):
+    """前端兼容 schema：保留旧字段，并接收三类命名结果的公共超集。"""
+
     name: Annotated[str, Field(..., description="The name of the person")]
     reference: Annotated[str, Field(..., description="The name of the person from where")]
     moral: Annotated[str, Field(..., description="寓意")]
@@ -12,11 +108,41 @@ class NameSchema(BaseModel):
     domain: str | None = Field(default=None, description="为品牌设计的纯小写.com域名，例如：astar.com；非品牌场景可为空")
     # 域名注册状态仅在存在 domain 时查询；非品牌场景可为空。
     domain_status: str | None = Field(default=None, description="域名的注册状态；非品牌场景可为空")
+    score: int | None = Field(default=None, ge=0, le=100, description="综合评分，0-100")
+    score_detail: ScoreDetailSchema | None = Field(default=None, description="可解释评分维度，每项 0-100")
+    score_reason: str | None = Field(default=None, description="评分理由")
+    risk_level: RiskLevel | None = Field(default=None, description="风险等级；非企业名场景可为空")
+    risk_reason: str | None = Field(default=None, description="风险说明；非企业名场景可为空")
+
+    @field_validator("score_detail")
+    @classmethod
+    def validate_score_detail(cls, value):
+        if value is None:
+            return value
+        return value
+
+    @model_validator(mode="after")
+    def fill_score_from_detail(self):
+        if self.score is None:
+            self.score = _calculate_composite_score(self.score_detail)
+        return self
 
 
 # 我们给大模型一个要求，让他起名字，一次性起多个名字。所以结构如下
 class NameResultSchema(BaseModel):
     names: List[NameSchema]
+
+
+class HumanNameResultSchema(BaseModel):
+    names: List[HumanNameSchema]
+
+
+class PetNameResultSchema(BaseModel):
+    names: List[PetNameSchema]
+
+
+class CompanyNameResultSchema(BaseModel):
+    names: List[CompanyNameSchema]
 
 
 CategoryLiteral = Literal["人名", "企业名", "宠物名"]
@@ -77,6 +203,7 @@ class FeedbackSchema(BaseModel):
     thread_id: str = Field(...)
     category: CategoryLiteral | FrontendCategoryLiteral | None = Field(default=None, description="路由依据")
     feedback: str = Field(..., description="用户的修改意见，如：换成带水字旁的字")
+    history_names: str | None = Field(default=None, description="上一轮候选名摘要，后端反馈续写时注入")
 
     @model_validator(mode="after")
     def normalize_category(self):
@@ -137,6 +264,10 @@ class NameCandidateOutSchema(BaseModel):
     domain: str | None = None
     domain_status: str | None = None
     score: int | None = None
+    score_detail: ScoreDetailSchema | None = None
+    score_reason: str | None = None
+    risk_level: RiskLevel | None = None
+    risk_reason: str | None = None
     is_selected: bool = False
     is_favorite: bool = False
     created_at: datetime
@@ -146,6 +277,15 @@ class NameCandidateOutSchema(BaseModel):
 
 class CandidateScoreIn(BaseModel):
     score: int = Field(..., ge=0, le=100)
+    score_detail: ScoreDetailSchema | None = None
+    score_reason: str | None = None
+
+    @field_validator("score_detail")
+    @classmethod
+    def validate_score_detail(cls, value):
+        if value is None:
+            return value
+        return value
 
 
 class DomainCheckOutSchema(BaseModel):
