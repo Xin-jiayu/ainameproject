@@ -159,6 +159,7 @@ const threadId = ref('');
 const feedbackText = ref('');
 const favoriteNames = ref(uni.getStorageSync('favoriteNames') || []);
 const selectedName = ref(uni.getStorageSync('selectedName') || '');
+const currentRecordId = ref(null);
 const compareItems = ref([]);
 const knowledgeFiles = ref([]);
 const loading = ref(false);
@@ -218,8 +219,16 @@ const domainChecks = (item) => {
 const riskLevel = (item, type) => item[`${type}_risk`]?.risk_level || item[`${type}_risk_level`] || 'unknown';
 const riskText = (item, type) => ({ low: '低风险', medium: '中风险', high: '高风险', unknown: '待检测' }[riskLevel(item, type)] || '待检测');
 const showComparison = () => uni.showModal({ title: '候选对比', content: compareItems.value.map(item => `${item.name}｜${candidateScore(item)} 分｜商标${riskText(item, 'trademark')}`).join('\n'), showCancel: false });
-const openReport = (item) => { uni.setStorageSync('selectedName', item.name); uni.navigateTo({ url: '/pages/reports/reports' }); };
-const openVisual = (item) => { uni.setStorageSync('selectedName', item.name); uni.navigateTo({ url: '/pages/visual/visual' }); };
+const saveSelectedContext = async (item) => {
+  let candidateId = item.id || null;
+  if (!candidateId && currentRecordId.value) {
+    try { candidateId = (await http.getCandidates(currentRecordId.value)).find(value => value.name === item.name)?.id || null; } catch (_) {}
+  }
+  const context = { name: item.name, record_id: currentRecordId.value, candidate_id: candidateId };
+  uni.setStorageSync('selectedName', item.name); uni.setStorageSync('selectedCandidate', context); return context;
+};
+const openReport = async (item) => { const ctx=await saveSelectedContext(item); if(!ctx.record_id)return uni.showToast({title:'请重新生成或从历史详情选择',icon:'none'}); uni.navigateTo({ url: '/pages/reports/reports' }); };
+const openVisual = async (item) => { const ctx=await saveSelectedContext(item); if(!ctx.record_id)return uni.showToast({title:'请重新生成或从历史详情选择',icon:'none'}); uni.navigateTo({ url: '/pages/visual/visual' }); };
 const formatDate = (value) => value ? String(value).replace('T', ' ').slice(0, 16) : '';
 const formatFileSize = (bytes) => !bytes ? '未知大小' : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
@@ -275,6 +284,7 @@ const handleGenerate = async () => {
     const res = await http.generateName(payload);
     names.value = res.names || [];
     threadId.value = res.thread_id;
+    currentRecordId.value = res.record_id || null;
     feedbackText.value = '';
     persistQuota(quota.value - 1);
     setTimeout(() => uni.pageScrollTo({ selector: '.results', duration: 300 }), 100);

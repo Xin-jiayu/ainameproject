@@ -29,6 +29,26 @@ export const API_ENDPOINTS = Object.freeze({
     detail: (id) => `/admin/users/${encodeURIComponent(id)}`,
     freeze: (id) => `/admin/users/${encodeURIComponent(id)}/freeze`,
     resetPassword: (id) => `/admin/users/${encodeURIComponent(id)}/reset-password`
+  },
+  candidates: { byRecord: (id) => `/records/${encodeURIComponent(id)}/candidates` },
+  commerce: {
+    products: "/products", orders: "/orders",
+    order: (id) => `/orders/${encodeURIComponent(id)}`,
+    paySuccess: (id) => `/orders/${encodeURIComponent(id)}/alipay-sandbox/success`,
+    closeOrder: (id) => `/orders/${encodeURIComponent(id)}/close`,
+    accounts: "/entitlements/accounts", records: "/entitlements/records",
+    reports: "/reports/tasks", reportTask: (id) => `/reports/tasks/${encodeURIComponent(id)}`,
+    reportDetail: (id) => `/reports/tasks/${encodeURIComponent(id)}/report`,
+    reportRetry: (id) => `/reports/tasks/${encodeURIComponent(id)}/retry`,
+    visuals: "/visual/tasks", visualTask: (id) => `/visual/tasks/${encodeURIComponent(id)}`,
+    visualRetry: (id) => `/visual/tasks/${encodeURIComponent(id)}/retry`
+  },
+  adminCommerce: {
+    products: "/admin/products", product: (id) => `/admin/products/${encodeURIComponent(id)}`,
+    productStatus: (id) => `/admin/products/${encodeURIComponent(id)}/status`,
+    orders: "/admin/orders", reports: "/admin/reports/tasks", visuals: "/admin/visual/tasks",
+    stats: "/admin/commercial/stats", adjust: "/admin/entitlements/adjust",
+    closeExpired: "/admin/orders/close-expired"
   }
 });
 

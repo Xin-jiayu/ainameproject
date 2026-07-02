@@ -47,6 +47,10 @@
     {
       "path": "pages/admin/users",
       "style": { "navigationBarTitleText": "用户管理", "enablePullDownRefresh": true }
+    },
+    {
+      "path": "pages/admin/commerce",
+      "style": { "navigationBarTitleText": "商业运营", "enablePullDownRefresh": true }
     }
   ],
   "globalStyle": {

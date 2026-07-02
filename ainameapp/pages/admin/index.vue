@@ -30,9 +30,9 @@
       <text class="arrow">›</text>
     </view>
 
-    <view class="section-head"><text>第三阶段演示数据</text></view>
-    <view class="phase-stats"><view><text>{{ orderCount }}</text><text>模拟订单</text></view><view><text>{{ reportCount }}</text><text>报告任务</text></view><view><text>{{ visualCount }}</text><text>视觉任务</text></view></view>
-    <view class="menu-card" @click="goPlans"><view class="menu-icon gold">单</view><view class="menu-content"><text class="menu-title">套餐与订单演示</text><text class="menu-desc">查看模拟购买及权益到账流程</text></view><text class="arrow">›</text></view>
+    <view class="section-head"><text>第三阶段运营数据</text></view>
+    <view class="phase-stats"><view><text>{{ orderCount }}</text><text>平台订单</text></view><view><text>{{ reportCount }}</text><text>报告任务</text></view><view><text>{{ visualCount }}</text><text>视觉任务</text></view></view>
+    <view class="menu-card" @click="goCommerce"><view class="menu-icon gold">营</view><view class="menu-content"><text class="menu-title">商业运营</text><text class="menu-desc">管理商品、订单、权益与失败任务</text></view><text class="arrow">›</text></view>
 
     <view class="notice">
       <text class="notice-title">管理员安全提示</text>
@@ -45,7 +45,6 @@
 import { computed, ref } from 'vue';
 import { onPullDownRefresh, onShow } from '@dcloudio/uni-app';
 import http from '@/http/http.js';
-import { getOrders, getReports, getVisuals } from '@/services/phase3Mock.js';
 
 const currentUser = ref(uni.getStorageSync('user') || {});
 const sampledUsers = ref([]);
@@ -68,9 +67,10 @@ const loadOverview = async () => {
   if (loading.value || !ensureAdmin()) return;
   loading.value = true;
   try {
-    const res = await http.getAdminUsers({ page: 1, page_size: 100 });
+    const [res,orders,reports,visuals] = await Promise.all([http.getAdminUsers({ page: 1, page_size: 100 }),http.getAdminOrders({page:1,page_size:1}),http.getAdminReports({page:1,page_size:1}),http.getAdminVisuals({page:1,page_size:1})]);
     sampledUsers.value = res.items || [];
     total.value = Number(res.total || 0);
+    orderCount.value=orders.total||0; reportCount.value=reports.total||0; visualCount.value=visuals.total||0;
   } catch (error) {
     if ([401, 403].includes(error?.statusCode)) uni.reLaunch({ url: '/pages/login/login' });
   } finally {
@@ -78,11 +78,11 @@ const loadOverview = async () => {
     uni.stopPullDownRefresh();
   }
 };
-onShow(() => { if (ensureAdmin()) { orderCount.value=getOrders().length; reportCount.value=getReports().length; visualCount.value=getVisuals().length; loadOverview(); } });
+onShow(() => { if (ensureAdmin()) loadOverview(); });
 onPullDownRefresh(loadOverview);
 const goUsers = () => uni.navigateTo({ url: '/pages/admin/users' });
 const goFrontend = () => uni.navigateTo({ url: '/pages/index/index' });
-const goPlans = () => uni.navigateTo({ url: '/pages/plans/plans' });
+const goCommerce = () => uni.navigateTo({ url: '/pages/admin/commerce' });
 const logout = () => uni.showModal({
   title: '退出管理员端',
   content: '确定退出当前账号？',

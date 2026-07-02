@@ -3,14 +3,15 @@
     <view class="profile"><view class="avatar">{{ (user.username || 'U').slice(0,1).toUpperCase() }}</view><view><text class="name">{{ user.username }}</text><text class="email">{{ user.email }}</text></view><text class="level">{{ entitlement.plan }}</text></view>
     <view class="asset-card"><text class="eyebrow">MY BENEFITS</text><text class="asset-title">我的权益</text><view class="assets"><view><text>{{ user.free_quota || 0 }}</text><text>免费次数</text></view><view><text>{{ entitlement.paid_quota }}</text><text>购买次数</text></view><view><text>{{ entitlement.report_quota }}</text><text>报告权益</text></view><view><text>{{ entitlement.visual_quota }}</text><text>视觉权益</text></view></view><button @click="goPlans">升级权益</button></view>
     <view class="menus"><view @click="goPlans"><text class="icon">惠</text><view><text>套餐与订单</text><text>查看套餐及模拟支付记录</text></view><text>›</text></view><view @click="goReports"><text class="icon green">报</text><view><text>高级报告</text><text>管理候选名字分析报告</text></view><text>›</text></view><view @click="goVisual"><text class="icon brown">图</text><view><text>品牌视觉</text><text>创建 Logo 与品牌板概念</text></view><text>›</text></view><view @click="goKnowledge"><text class="icon gray">库</text><view><text>企业知识库</text><text>管理品牌参考资料</text></view><text>›</text></view></view>
-    <view class="mock-note">第三阶段演示模式：套餐、报告和视觉任务暂存于本机，后端接口开放后可无缝替换。</view>
+    <view class="mock-note">第三阶段服务已连接后端；支付入口使用支付宝沙箱，不会产生真实扣款。</view>
     <button class="logout" @click="logout">退出登录</button>
   </view>
 </template>
 <script setup>
-import { ref } from 'vue'; import { onShow } from '@dcloudio/uni-app'; import { getEntitlement } from '@/services/phase3Mock.js';
-const user=ref({}); const entitlement=ref(getEntitlement());
-onShow(()=>{ if(!uni.getStorageSync('token')) return uni.reLaunch({url:'/pages/login/login'}); user.value=uni.getStorageSync('user')||{}; entitlement.value=getEntitlement(); });
+import { ref } from 'vue'; import { onShow } from '@dcloudio/uni-app'; import http from '@/http/http.js';
+const user=ref({}); const entitlement=ref({plan:'免费版',paid_quota:0,report_quota:0,visual_quota:0});
+const mapType=v=>({name_generate:'paid_quota',report_generate:'report_quota',visual_generate:'visual_quota'}[v]);
+onShow(async()=>{ if(!uni.getStorageSync('token')) return uni.reLaunch({url:'/pages/login/login'}); user.value=uni.getStorageSync('user')||{}; try{const accounts=await http.getEntitlementAccounts();const next={plan:accounts.length?'已购权益':'免费版',paid_quota:0,report_quota:0,visual_quota:0};accounts.forEach(a=>{const key=mapType(a.entitlement_type);if(key)next[key]+=Number(a.balance||0);});entitlement.value=next;}catch(e){console.error(e);} });
 const goPlans=()=>uni.navigateTo({url:'/pages/plans/plans'}); const goReports=()=>uni.navigateTo({url:'/pages/reports/reports'}); const goVisual=()=>uni.navigateTo({url:'/pages/visual/visual'}); const goKnowledge=()=>uni.navigateTo({url:'/pages/knowledge/knowledge'});
 const logout=()=>uni.showModal({title:'退出登录',content:'确定退出当前账号？',success:({confirm})=>{if(!confirm)return;uni.removeStorageSync('token');uni.removeStorageSync('user');uni.reLaunch({url:'/pages/login/login'});}});
 </script>

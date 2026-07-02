@@ -36,6 +36,7 @@
         </view>
         <view class="detail"><text>灵感</text><view>{{ item.reference }}</view></view>
         <view class="detail"><text>寓意</text><view>{{ item.moral }}</view></view>
+        <view class="phase-actions"><button size="mini" @click="openService(item,'reports')">生成报告</button><button size="mini" @click="openService(item,'visual')">品牌视觉</button></view>
       </view>
 
       <view v-if="record.feedbacks?.length" class="timeline-section">
@@ -70,6 +71,7 @@ const record = ref(null);
 const loading = ref(false);
 const submitting = ref(false);
 const feedback = ref('');
+const candidates = ref([]);
 const names = computed(() => normalizeNames(record.value?.result_data));
 const inputSummary = computed(() => {
   const input = record.value?.input_data || {};
@@ -101,7 +103,7 @@ const normalizeNames = (data) => {
 const loadDetail = async () => {
   if (!recordId.value) return;
   loading.value = true;
-  try { record.value = await http.getNameRecord(recordId.value); }
+  try { const [detail,list] = await Promise.all([http.getNameRecord(recordId.value), http.getCandidates(recordId.value)]); record.value = detail; candidates.value = list || []; }
   catch (error) { console.error(error); }
   finally { loading.value = false; }
 };
@@ -109,6 +111,7 @@ const formatDate = (value) => value ? String(value).replace('T', ' ').slice(0, 1
 const domainAvailable = (status = '') => /未注册|可注册|available|✅/i.test(status);
 const riskLevel = (item, type) => item?.[`${type}_risk`]?.risk_level || item?.[`${type}_risk_level`] || 'unknown';
 const riskText = (item, type) => ({ low: '低风险', medium: '中风险', high: '高风险', unknown: '待检测' }[riskLevel(item, type)] || '待检测');
+const openService = (item, page) => { const candidate=candidates.value.find(value=>value.name===item.name); uni.setStorageSync('selectedCandidate',{name:item.name,record_id:recordId.value,candidate_id:candidate?.id||null}); uni.navigateTo({url:`/pages/${page}/${page}`}); };
 const submitFeedback = async () => {
   if (!feedback.value.trim()) return uni.showToast({ title: '请先写下修改意见', icon: 'none' });
   submitting.value = true;
@@ -167,4 +170,5 @@ const submitFeedback = async () => {
 .feedback-input { width: 100%; height: 180rpx; margin-top: 22rpx; padding: 21rpx; box-sizing: border-box; border: 1rpx solid #ddd5c8; border-radius: 14rpx; background: rgba(255,255,255,.75); font-size: 25rpx; }
 button.continue-button { margin-top: 20rpx; color: #fff; border-radius: 14rpx; background: #3b564a; font-size: 26rpx; }
 button.continue-button::after { border: none; }
+.phase-actions { margin-top: 20rpx; text-align: right; }.phase-actions button { display: inline-block; margin-left: 12rpx; color: #3d5b4d; background: #edf3ef; }
 </style>
