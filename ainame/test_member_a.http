@@ -1,8 +1,18 @@
+### 获取tocen
+POST http://127.0.0.1:8000/auth/login
+Accept: application/json
+Content-Type: application/json
+
+{
+  "email":"",
+  "password": ""
+}
+
 ### 成员 A 第一阶段接口测试清单
 ### 使用方式：先启动后端服务，登录后把 token 填到下面变量
 
 @baseUrl = http://127.0.0.1:8000
-@token = 替换为登录返回的token
+@token =
 @recordId = 1
 @threadId = 替换为生成接口返回的thread_id
 @knowledgeFileId = 1

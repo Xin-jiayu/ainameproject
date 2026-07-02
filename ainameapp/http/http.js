@@ -1,4 +1,4 @@
-const BASE_URL = "http://127.0.0.1:8000";
+import { API_CONFIG, API_ENDPOINTS, buildApiUrl, buildQuery } from "@/config/api.js";
 
 const getErrorMessage = (data) => {
   if (data && Array.isArray(data.detail)) {
@@ -22,12 +22,15 @@ const request = (url, options = {}) => {
   const token = uni.getStorageSync("token");
   return new Promise((resolve, reject) => {
     uni.request({
-      url: BASE_URL + url,
+      url: buildApiUrl(url),
+      timeout: API_CONFIG.timeout,
+      ...options,
+      // 避免 options.header 覆盖统一鉴权头。
       header: {
         "content-type": "application/json",
-        authorization: token ? `Bearer ${token}` : ""
+        authorization: token ? `Bearer ${token}` : "",
+        ...(options.header || {})
       },
-      ...options,
       success: (res) => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
           resolve(res.data);
@@ -50,7 +53,8 @@ const uploadFile = (url, filePath) => {
   const token = uni.getStorageSync("token");
   return new Promise((resolve, reject) => {
     uni.uploadFile({
-      url: BASE_URL + url,
+      url: buildApiUrl(url),
+      timeout: API_CONFIG.uploadTimeout,
       filePath,
       name: "file",
       header: { authorization: token ? `Bearer ${token}` : "" },
@@ -75,15 +79,15 @@ const uploadFile = (url, filePath) => {
 };
 
 export default {
-  getEmailCode: (email) => request(`/auth/code?email=${encodeURIComponent(email)}`, { method: "GET" }),
-  register: (data) => request("/auth/register", { method: "POST", data }),
-  login: (data) => request("/auth/login", { method: "POST", data }),
-  generateName: (data) => request("/names/generate", { method: "POST", data }),
-  feedbackName: (data) => request("/names/feedback", { method: "POST", data }),
-  getNameRecords: (skip = 0, limit = 20) => request(`/names/records?skip=${skip}&limit=${limit}`, { method: "GET" }),
-  getNameRecord: (id) => request(`/names/records/${id}`, { method: "GET" }),
-  deleteNameRecord: (id) => request(`/names/records/${id}`, { method: "DELETE" }),
-  uploadKnowledge: (filePath) => uploadFile("/knowledge/upload", filePath),
-  getKnowledgeFiles: (skip = 0, limit = 20) => request(`/knowledge/files?skip=${skip}&limit=${limit}`, { method: "GET" }),
-  getKnowledgeFile: (id) => request(`/knowledge/files/${id}`, { method: "GET" })
+  getEmailCode: (email) => request(buildQuery(API_ENDPOINTS.auth.code, { email }), { method: "GET" }),
+  register: (data) => request(API_ENDPOINTS.auth.register, { method: "POST", data }),
+  login: (data) => request(API_ENDPOINTS.auth.login, { method: "POST", data }),
+  generateName: (data) => request(API_ENDPOINTS.names.generate, { method: "POST", data }),
+  feedbackName: (data) => request(API_ENDPOINTS.names.feedback, { method: "POST", data }),
+  getNameRecords: (skip = 0, limit = 20) => request(buildQuery(API_ENDPOINTS.names.records, { skip, limit }), { method: "GET" }),
+  getNameRecord: (id) => request(API_ENDPOINTS.names.record(id), { method: "GET" }),
+  deleteNameRecord: (id) => request(API_ENDPOINTS.names.record(id), { method: "DELETE" }),
+  uploadKnowledge: (filePath) => uploadFile(API_ENDPOINTS.knowledge.upload, filePath),
+  getKnowledgeFiles: (skip = 0, limit = 20) => request(buildQuery(API_ENDPOINTS.knowledge.files, { skip, limit }), { method: "GET" }),
+  getKnowledgeFile: (id) => request(API_ENDPOINTS.knowledge.file(id), { method: "GET" })
 };

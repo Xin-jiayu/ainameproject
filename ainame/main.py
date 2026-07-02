@@ -3,6 +3,7 @@ from fastapi_mail import FastMail, MessageSchema, MessageType
 
 from dependencies import get_email
 from core.observability import request_logging_middleware, setup_logging
+from routers.admin_router import router as admin_router
 from routers.auth_router import router as auth_router
 from routers.name_router import router as name_router
 from routers.ops_router import router as ops_router
@@ -23,6 +24,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router)
+app.include_router(admin_router)
 app.include_router(name_router)
 app.include_router(rag_router)
 app.include_router(ops_router)

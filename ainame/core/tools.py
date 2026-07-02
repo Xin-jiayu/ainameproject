@@ -1,39 +1,80 @@
-import  asyncio
+import asyncio
+import re
+from dataclasses import dataclass
 
-async def check_com_domain(domain:str):
-    """
-    异步工具：向全球 .com 根服务器查询域名是否可用
-    """
-    # 容错处理：确保查询的是 .com 域名
-    if not domain.endswith(".com"):
-        if "." not in domain:
-            domain+=".com"
-        else:
-            return " 仅支持.com校验"
 
+DOMAIN_QUERY_UNAVAILABLE = "域名查询暂不可用"
+DOMAIN_QUERY_TIMEOUT = "域名查询超时，请稍后重试"
+DOMAIN_AVAILABLE = "未注册（可购买）"
+DOMAIN_TAKEN = "已注册"
+DOMAIN_INVALID = "域名格式不正确"
+DOMAIN_SUFFIX_UNSUPPORTED = "仅支持 .com 域名校验"
+
+_DOMAIN_LABEL_RE = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
+
+
+@dataclass(frozen=True)
+class DomainCheckResult:
+    domain: str | None
+    status: str
+
+
+def normalize_com_domain(raw_domain: str | None) -> DomainCheckResult:
+    """Normalize AI-generated domain text before querying whois."""
+    if not raw_domain:
+        return DomainCheckResult(None, DOMAIN_INVALID)
+
+    domain = str(raw_domain).strip().lower()
+    domain = re.sub(r"\s+", "", domain)
+    domain = re.sub(r"^https?://", "", domain)
+    domain = re.sub(r"^www\.", "", domain)
+    domain = domain.split("/", 1)[0].split("?", 1)[0].split("#", 1)[0].strip(".")
+
+    if not domain:
+        return DomainCheckResult(None, DOMAIN_INVALID)
+    if "." not in domain:
+        domain = f"{domain}.com"
+    elif not domain.endswith(".com"):
+        return DomainCheckResult(domain, DOMAIN_SUFFIX_UNSUPPORTED)
+
+    labels = domain.split(".")
+    if labels[-1] != "com" or len(labels) < 2 or len(domain) > 253:
+        return DomainCheckResult(domain, DOMAIN_INVALID)
+    if any(not _DOMAIN_LABEL_RE.match(label) for label in labels[:-1]):
+        return DomainCheckResult(domain, DOMAIN_INVALID)
+
+    return DomainCheckResult(domain, "pending")
+
+
+async def check_com_domain(domain: str | None) -> DomainCheckResult:
+    normalized = normalize_com_domain(domain)
+    if normalized.status != "pending" or not normalized.domain:
+        return normalized
+
+    writer = None
     try:
-        # 1. 建立与 whois.verisign-grs.com 的 43 端口异步 TCP 连接
         reader, writer = await asyncio.wait_for(
-            asyncio.open_connection('whois.verisign-grs.com', 43),
-            timeout=3.0  # 限制 3 秒超时，防止卡死
+            asyncio.open_connection("whois.verisign-grs.com", 43),
+            timeout=3.0,
         )
-        # 2. 发送查询指令 (域名 + 回车换行)
-        writer.write((domain + "\r\n").encode('utf-8'))
+        writer.write((normalized.domain + "\r\n").encode("utf-8"))
         await writer.drain()
-        # 3. 读取服务器返回的数据
-        response = await asyncio.wait_for(reader.read(), timeout=10.0)
-        # 4. 释放连接
-        writer.close()
-        await writer.wait_closed()
 
-        result = response.decode('utf-8', errors='ignore')
-        # 5. 核心逻辑：如果服务器返回 "No match for"，说明没人注册！
+        response = await asyncio.wait_for(reader.read(), timeout=5.0)
+        result = response.decode("utf-8", errors="ignore")
+
         if "No match for" in result:
-            return "✅ 未注册 (可买)"
-        else:
-            return "❌ 已被抢注"
+            return DomainCheckResult(normalized.domain, DOMAIN_AVAILABLE)
+        return DomainCheckResult(normalized.domain, DOMAIN_TAKEN)
 
     except asyncio.TimeoutError:
-            return "⚠️ 查询超时"
-    except Exception as e:
-            return f"⚠️ 查询失败: {str(e)}"
+        return DomainCheckResult(normalized.domain, DOMAIN_QUERY_TIMEOUT)
+    except Exception:
+        return DomainCheckResult(normalized.domain, DOMAIN_QUERY_UNAVAILABLE)
+    finally:
+        if writer is not None:
+            writer.close()
+            try:
+                await writer.wait_closed()
+            except Exception:
+                pass

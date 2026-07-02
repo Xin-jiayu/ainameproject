@@ -8,10 +8,10 @@ class NameSchema(BaseModel):
     name: Annotated[str, Field(..., description="The name of the person")]
     reference: Annotated[str, Field(..., description="The name of the person from where")]
     moral: Annotated[str, Field(..., description="寓意")]
-    # 加了2个字段，这两个字段的意思是，第一，让大模型根据我们起的名字，赋值域名
-    domain: str = Field(..., description="为该品牌设计的纯小写.com域名，例如：astar.com")
-    # 是否被注册  查询第二方接口，根据domain，判断是否已被注册
-    domain_status: str = Field(default="正在查询...", description="域名的注册状态")
+    # 企业/品牌名可返回域名建议；人名、宠物名等非品牌场景可为空。
+    domain: str | None = Field(default=None, description="为品牌设计的纯小写.com域名，例如：astar.com；非品牌场景可为空")
+    # 域名注册状态仅在存在 domain 时查询；非品牌场景可为空。
+    domain_status: str | None = Field(default=None, description="域名的注册状态；非品牌场景可为空")
 
 
 # 我们给大模型一个要求，让他起名字，一次性起多个名字。所以结构如下

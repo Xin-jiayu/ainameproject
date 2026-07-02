@@ -5,7 +5,13 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from core.auth import AuthHandler
 # from core.nametools import generate_names
-from core.workflow import feedback_names, generate_naming, generate_naming_v2, init_graph
+from core.workflow import (
+    NameGenerationError,
+    feedback_names,
+    generate_naming,
+    generate_naming_v2,
+    init_graph,
+)
 from dependencies import get_session
 from repository.name_record_repo import NameRecordRepository
 from repository.phase_two_repo import PhaseTwoRepository
@@ -77,6 +83,9 @@ async def get_names(name_info: NameIn,
         await save_candidates(session, record.id, result)
         await save_usage_record(session, user_id, record.id, quota_change)
         return NameOutSchema(names=result["names"])
+    except NameGenerationError as e:
+        await user_repository.refund_free_quota(user_id)
+        raise HTTPException(status_code=502, detail=str(e))
     except Exception:
         await user_repository.refund_free_quota(user_id)
         raise
@@ -106,6 +115,9 @@ async def generate_names(name_info: NameIn,
             names=result["names"]["names"],
             record_id=record.id,
         )
+    except NameGenerationError as e:
+        await user_repository.refund_free_quota(user_id)
+        raise HTTPException(status_code=502, detail=str(e))
     except Exception:
         await user_repository.refund_free_quota(user_id)
         raise
@@ -166,7 +178,10 @@ async def feedback(data:FeedbackSchema,
         data.category = record.category
 
     await init_graph()
-    result = await feedback_names(data, user_id)
+    try:
+        result = await feedback_names(data, user_id)
+    except NameGenerationError as e:
+        raise HTTPException(status_code=502, detail=str(e))
     await record_repository.add_feedback_and_update_record(
         record=record,
         feedback_text=data.feedback,

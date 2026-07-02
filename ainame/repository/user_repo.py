@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta
 
-from sqlalchemy import exists, select
+from sqlalchemy import exists, func, or_, select
 from sqlalchemy.ext.asyncio.session import AsyncSession
 
 from models.user import EmailCode, User
@@ -44,6 +44,10 @@ class UserRepository():
         result = await self.session.execute(select(User).where(User.email==email))
         return result.scalar_one_or_none()
 
+    async def get_user_by_id(self, user_id:int):
+        result = await self.session.execute(select(User).where(User.id == int(user_id)))
+        return result.scalar_one_or_none()
+
     # 插入一条数据
     async def create_user(self, user:UserCreateSchema):
         async with self.session.begin():
@@ -57,6 +61,62 @@ class UserRepository():
         async with self.session.begin():
             stmt=select(exists().where(User.email==email))
             return await self.session.scalar(stmt)
+
+    async def email_is_used_by_other(self, email:str, user_id:int):
+        stmt=select(exists().where(User.email == email, User.id != int(user_id)))
+        return await self.session.scalar(stmt)
+
+    async def list_users(self, page:int = 1, page_size:int = 20, keyword:str | None = None):
+        page = max(page, 1)
+        page_size = min(max(page_size, 1), 100)
+        conditions = []
+        if keyword:
+            like_keyword = f"%{keyword.strip()}%"
+            conditions.append(or_(User.email.like(like_keyword), User.username.like(like_keyword)))
+
+        where_clause = conditions[0] if conditions else None
+        total_stmt = select(func.count()).select_from(User)
+        list_stmt = select(User).order_by(User.id.desc()).offset((page - 1) * page_size).limit(page_size)
+        if where_clause is not None:
+            total_stmt = total_stmt.where(where_clause)
+            list_stmt = list_stmt.where(where_clause)
+
+        total = await self.session.scalar(total_stmt)
+        result = await self.session.execute(list_stmt)
+        return {
+            "items": result.scalars().all(),
+            "total": total or 0,
+            "page": page,
+            "page_size": page_size,
+        }
+
+    async def update_user(self, user_id:int, data:dict):
+        async with self.session.begin():
+            user = await self.session.scalar(select(User).where(User.id == int(user_id)).with_for_update())
+            if not user:
+                return None
+            for key, value in data.items():
+                setattr(user, key, value)
+            return user
+
+    async def set_user_frozen(self, user_id:int, is_frozen:bool):
+        return await self.update_user(user_id, {"is_frozen": is_frozen})
+
+    async def reset_user_password(self, user_id:int, password:str):
+        async with self.session.begin():
+            user = await self.session.scalar(select(User).where(User.id == int(user_id)).with_for_update())
+            if not user:
+                return None
+            user.password = password
+            return user
+
+    async def delete_user(self, user_id:int):
+        async with self.session.begin():
+            user = await self.session.scalar(select(User).where(User.id == int(user_id)).with_for_update())
+            if not user:
+                return None
+            await self.session.delete(user)
+            return user
 
     async def consume_free_quota(self, user_id:int):
         async with self.session.begin():

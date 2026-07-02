@@ -36,6 +36,35 @@ class UserSchema(BaseModel):
     username: RawUsernamedStr
     email: EmailStr
     free_quota: Annotated[int,Field(...)]
+    is_admin: Annotated[bool,Field(...)]
+    is_frozen: Annotated[bool,Field(...)]
+
+
+class AdminUserSchema(UserSchema):
+    pass
+
+
+class AdminUserListOut(BaseModel):
+    items: list[AdminUserSchema]
+    total: int
+    page: int
+    page_size: int
+
+
+class AdminUserUpdateIn(BaseModel):
+    email: EmailStr | None = None
+    username: Annotated[str,Field(min_length=4,max_length=50)] | None = None
+    free_quota: Annotated[int,Field(ge=0)] | None = None
+    is_admin: bool | None = None
+    is_frozen: bool | None = None
+
+
+class AdminUserFreezeIn(BaseModel):
+    is_frozen: bool
+
+
+class AdminUserResetPasswordIn(BaseModel):
+    password: RawPasswordStr
 
 from models.user import User
 class LoginOut(BaseModel):

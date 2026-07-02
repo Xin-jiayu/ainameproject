@@ -1,4 +1,4 @@
-from sqlalchemy import Integer, String , DateTime
+from sqlalchemy import Boolean, Integer, String , DateTime
 from sqlalchemy.orm import Mapped, mapped_column
 from . import Base
 from datetime import datetime
@@ -14,6 +14,8 @@ class User(Base):
     email:Mapped[str] = mapped_column(String(100),unique=True)
     username:Mapped[str] = mapped_column(String(100))
     free_quota:Mapped[int] = mapped_column(Integer, default=3, server_default="3")
+    is_admin:Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
+    is_frozen:Mapped[bool] = mapped_column(Boolean, default=False, server_default="0")
     # 数据库中存储的是加密后的密码，不是明文  123456 dsfgsdgtuaseffgasgsd
     _password:Mapped[str] = mapped_column(String(200))
 
@@ -36,7 +38,13 @@ class User(Base):
         self._password=get_password_hash().hash(password)
     # 校验密码  你登录淘宝，随便输入一个秘密，它会报告，密码错误。
     def check_password(self,password):
-        return get_password_hash().verify(password,self._password)
+        try:
+            return get_password_hash().verify(password,self._password)
+        except Exception:
+            if password == self._password:
+                self.password = password
+                return True
+            return False
 
 class EmailCode(Base):
     __tablename__ = "email_code"

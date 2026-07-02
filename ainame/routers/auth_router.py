@@ -91,9 +91,14 @@ async def login(userinfo: LoginIn, session: AsyncSession = Depends(get_session))
     user: User | None = await userRepository.get_user_by_email(userinfo.email)
     if not user:
         raise HTTPException(status_code=400, detail="该用户不存在！")
+    if user.is_frozen:
+        raise HTTPException(status_code=403, detail="账号已被冻结")
     # 2. 验证密码是否正确，密码错误不允许登录
     if not user.check_password(userinfo.password):
         raise HTTPException(status_code=400, detail="密码输入错误，请核对后输入！")
+    if session.is_modified(user):
+        await session.commit()
+        await session.refresh(user)
     # 3. 密码正确，允许登录，生成并返回令牌，用户后续请求携带令牌鉴权
     tokens = authHandler.encode_login_token(user.id)
     return {

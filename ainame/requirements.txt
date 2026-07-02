@@ -12,6 +12,7 @@ PyJWT
 aio-pika
 pwdlib
 langgraph
+langgraph-checkpoint-postgres
 langchain
 langchain-community
 langchain-deepseek
