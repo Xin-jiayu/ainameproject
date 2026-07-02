@@ -267,6 +267,7 @@ llm = ChatDeepSeek(
     model="deepseek-chat",
     api_key=settings.DEEPSEEK_API_KEY,
     temperature=0.5,
+    timeout=settings.LLM_TIMEOUT_SECONDS,
 )
 structured_llm = llm.with_structured_output(NameResultSchema).with_retry(stop_after_attempt=3)
 
