@@ -25,6 +25,26 @@
       "style": { "navigationBarTitleText": "企业知识库", "enablePullDownRefresh": true }
     },
     {
+      "path": "pages/user/center",
+      "style": { "navigationBarTitleText": "用户中心" }
+    },
+    {
+      "path": "pages/plans/plans",
+      "style": { "navigationBarTitleText": "套餐与权益" }
+    },
+    {
+      "path": "pages/reports/reports",
+      "style": { "navigationBarTitleText": "高级报告" }
+    },
+    {
+      "path": "pages/visual/visual",
+      "style": { "navigationBarTitleText": "品牌视觉" }
+    },
+    {
+      "path": "pages/admin/index",
+      "style": { "navigationBarTitleText": "管理控制台", "enablePullDownRefresh": true }
+    },
+    {
       "path": "pages/admin/users",
       "style": { "navigationBarTitleText": "用户管理", "enablePullDownRefresh": true }
     }

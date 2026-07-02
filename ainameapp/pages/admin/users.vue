@@ -2,7 +2,7 @@
   <view class="page">
     <view class="header">
       <view><text class="eyebrow">ADMIN CONSOLE</text><text class="title">用户管理</text></view>
-      <button class="logout" size="mini" @click="logout">退出登录</button>
+      <button class="logout" size="mini" @click="goDashboard">控制台</button>
     </view>
 
     <view class="search-bar">
@@ -109,7 +109,7 @@ const submitDialog = async () => {
 };
 const toggleFreeze = (item) => uni.showModal({ title: item.is_frozen ? '确认解冻' : '确认冻结', content: `${item.is_frozen ? '解冻' : '冻结'}用户 ${item.username}？`, success: async ({ confirm }) => { if (!confirm) return; await http.setAdminUserFrozen(item.id, !item.is_frozen); uni.showToast({ title: item.is_frozen ? '已解冻' : '已冻结' }); loadUsers(); } });
 const removeUser = (item) => uni.showModal({ title: '删除用户', content: `将永久删除 ${item.username}，此操作不可恢复。`, confirmColor: '#b84c43', success: async ({ confirm }) => { if (!confirm) return; await http.deleteAdminUser(item.id); uni.showToast({ title: '用户已删除' }); if (users.value.length === 1 && page.value > 1) page.value--; loadUsers(); } });
-const logout = () => uni.showModal({ title: '退出登录', content: '确定退出管理员后台？', success: ({ confirm }) => { if (!confirm) return; uni.removeStorageSync('token'); uni.removeStorageSync('user'); uni.reLaunch({ url: '/pages/login/login' }); } });
+const goDashboard = () => uni.redirectTo({ url: '/pages/admin/index' });
 </script>
 
 <style scoped>

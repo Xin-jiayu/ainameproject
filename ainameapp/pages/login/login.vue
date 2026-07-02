@@ -23,7 +23,7 @@ const handleLogin = async () => {
     uni.setStorageSync('token', res.token);
     uni.setStorageSync('user', res.user);
     uni.showToast({ title: '登录成功' });
-    const target = res.user?.is_admin ? '/pages/admin/users' : '/pages/index/index';
+    const target = res.user?.is_admin ? '/pages/admin/index' : '/pages/index/index';
     setTimeout(() => uni.reLaunch({ url: target }), 700);
   } catch (e) {
     console.error(e);

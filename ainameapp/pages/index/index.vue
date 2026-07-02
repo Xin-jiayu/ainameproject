@@ -5,7 +5,7 @@
         <text class="eyebrow">NAMING STUDIO</text>
         <view class="hello">你好，{{ user.username || '灵感探索者' }}</view>
       </view>
-      <view class="top-actions"><text v-if="user.is_admin" @click="goAdmin">用户管理</text><text @click="goKnowledge">知识库</text><text @click="goHistory">历史方案 ›</text></view>
+      <view class="top-actions"><text v-if="user.is_admin" @click="goAdmin">管理台</text><text @click="goCenter">我的</text><text @click="goHistory">历史 ›</text></view>
     </view>
 
     <view class="hero-card">
@@ -109,6 +109,8 @@
             <text :class="['action-chip', isFavorite(item) ? 'active' : '']" @click="toggleFavorite(item)">{{ isFavorite(item) ? '★ 已收藏' : '☆ 收藏' }}</text>
             <text :class="['action-chip', isSelected(item) ? 'selected' : '']" @click="toggleSelected(item)">{{ isSelected(item) ? '✓ 已选中' : '设为意向' }}</text>
             <text :class="['action-chip', isCompared(item) ? 'active' : '']" @click="toggleCompare(item)">{{ isCompared(item) ? '移出对比' : '加入对比' }}</text>
+            <text class="action-chip phase3" @click="openReport(item)">高级报告</text>
+            <text class="action-chip phase3" @click="openVisual(item)">品牌视觉</text>
           </view>
           <view v-if="domainChecks(item).length" class="validation-block">
             <text class="validation-title">域名可用性</text>
@@ -193,7 +195,8 @@ const changeGender = (event) => { formData.value.gender = genderOptions[event.de
 const changeLength = (event) => { formData.value.length = lengthOptions[event.detail.value]; };
 const goHistory = () => uni.navigateTo({ url: '/pages/history/history' });
 const goKnowledge = () => uni.navigateTo({ url: '/pages/knowledge/knowledge' });
-const goAdmin = () => uni.navigateTo({ url: '/pages/admin/users' });
+const goCenter = () => uni.navigateTo({ url: '/pages/user/center' });
+const goAdmin = () => uni.navigateTo({ url: '/pages/admin/index' });
 const domainAvailable = (status = '') => /未注册|可注册|available|✅/i.test(status);
 const isFavorite = (item) => favoriteNames.value.includes(item.name);
 const isSelected = (item) => selectedName.value === item.name;
@@ -215,6 +218,8 @@ const domainChecks = (item) => {
 const riskLevel = (item, type) => item[`${type}_risk`]?.risk_level || item[`${type}_risk_level`] || 'unknown';
 const riskText = (item, type) => ({ low: '低风险', medium: '中风险', high: '高风险', unknown: '待检测' }[riskLevel(item, type)] || '待检测');
 const showComparison = () => uni.showModal({ title: '候选对比', content: compareItems.value.map(item => `${item.name}｜${candidateScore(item)} 分｜商标${riskText(item, 'trademark')}`).join('\n'), showCancel: false });
+const openReport = (item) => { uni.setStorageSync('selectedName', item.name); uni.navigateTo({ url: '/pages/reports/reports' }); };
+const openVisual = (item) => { uni.setStorageSync('selectedName', item.name); uni.navigateTo({ url: '/pages/visual/visual' }); };
 const formatDate = (value) => value ? String(value).replace('T', ' ').slice(0, 16) : '';
 const formatFileSize = (bytes) => !bytes ? '未知大小' : bytes < 1024 * 1024 ? `${(bytes / 1024).toFixed(1)} KB` : `${(bytes / 1024 / 1024).toFixed(1)} MB`;
 
@@ -358,6 +363,7 @@ button.generate-button[disabled] { color: #fff; background: #bdb5a8; box-shadow:
 .candidate-actions { margin: 16rpx 0; }
 .action-chip { padding: 8rpx 16rpx; color: #7c7469; border-radius: 30rpx; background: #f3f0ea; font-size: 20rpx; }
 .action-chip.active { color: #99652d; background: #fff0d7; }.action-chip.selected { color: #fff; background: #496657; }
+.action-chip.phase3 { color: #405d4f; border: 1rpx solid #bfd0c6; background: #edf4f0; }
 .validation-block { margin: 18rpx 0; padding: 18rpx; border-radius: 14rpx; background: #faf8f4; }
 .validation-title { display: block; margin-bottom: 12rpx; color: #746b5e; font-size: 20rpx; }
 .domain-cell { display: flex; flex-direction: column; min-width: 100rpx; padding: 10rpx 14rpx; color: #98574d; border-radius: 10rpx; background: #f8e9e6; font-size: 18rpx; }.domain-cell.available { color: #357052; background: #e7f4ec; }
