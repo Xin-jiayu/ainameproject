@@ -3,6 +3,7 @@ from sqlalchemy.ext.asyncio.session import AsyncSession
 from starlette.status import HTTP_400_BAD_REQUEST, HTTP_404_NOT_FOUND
 
 from dependencies import get_admin_user, get_session
+from repository.admin_operation_log_repo import AdminOperationLogRepository
 from repository.user_repo import UserRepository
 from schemas.user_schemas import (
     AdminUserFreezeIn,
@@ -14,6 +15,23 @@ from schemas.user_schemas import (
 
 
 router = APIRouter(prefix="/admin/users", tags=["admin-users"])
+
+
+async def log_admin_action(
+    session: AsyncSession,
+    admin_user,
+    action: str,
+    resource_type: str,
+    resource_id: int | str | None = None,
+    details: dict | None = None,
+):
+    await AdminOperationLogRepository(session=session).create_log(
+        admin_user_id=admin_user.id,
+        action=action,
+        resource_type=resource_type,
+        resource_id=resource_id,
+        details=details,
+    )
 
 
 @router.get("", response_model=AdminUserListOut)
@@ -49,6 +67,14 @@ async def update_user(
     user = await user_repository.update_user(user_id, data)
     if not user:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="用户不存在")
+    await log_admin_action(
+        session,
+        admin_user,
+        action="update_user",
+        resource_type="user",
+        resource_id=user_id,
+        details={"fields": sorted(data.keys())},
+    )
     return user
 
 
@@ -65,6 +91,14 @@ async def freeze_user(
     user = await UserRepository(session=session).set_user_frozen(user_id, freeze_info.is_frozen)
     if not user:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="用户不存在")
+    await log_admin_action(
+        session,
+        admin_user,
+        action="freeze_user" if freeze_info.is_frozen else "unfreeze_user",
+        resource_type="user",
+        resource_id=user_id,
+        details={"is_frozen": freeze_info.is_frozen},
+    )
     return user
 
 
@@ -78,6 +112,14 @@ async def reset_user_password(
     user = await UserRepository(session=session).reset_user_password(user_id, password_info.password)
     if not user:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="用户不存在")
+    await log_admin_action(
+        session,
+        admin_user,
+        action="reset_user_password",
+        resource_type="user",
+        resource_id=user_id,
+        details=None,
+    )
     return {"message": "密码已重置"}
 
 
@@ -93,4 +135,12 @@ async def delete_user(
     user = await UserRepository(session=session).delete_user(user_id)
     if not user:
         raise HTTPException(status_code=HTTP_404_NOT_FOUND, detail="用户不存在")
+    await log_admin_action(
+        session,
+        admin_user,
+        action="delete_user",
+        resource_type="user",
+        resource_id=user_id,
+        details={"email": user.email},
+    )
     return {"message": "用户已删除"}

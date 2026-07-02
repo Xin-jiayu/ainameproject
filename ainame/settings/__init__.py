@@ -36,6 +36,8 @@ MAIL_STARTTLS = get_bool_env("MAIL_STARTTLS", True)
 MAIL_SSL_TLS = get_bool_env("MAIL_SSL_TLS", False)
 
 JWT_SECRET_KEY = get_required_env("JWT_SECRET_KEY")
+if len(JWT_SECRET_KEY.encode("utf-8")) < 32:
+    raise RuntimeError("JWT_SECRET_KEY must be at least 32 bytes. Generate a long random secret before starting.")
 JWT_ACCESS_TOKEN_EXPIRES = timedelta(days=int(os.getenv("JWT_ACCESS_TOKEN_EXPIRES_DAYS", "1")))
 JWT_REFRESH_TOKEN_EXPIRES = timedelta(days=int(os.getenv("JWT_REFRESH_TOKEN_EXPIRES_DAYS", "30")))
 
@@ -56,3 +58,8 @@ LANGGRAPH_CHECKPOINT_FALLBACK_TO_MEMORY = get_bool_env("LANGGRAPH_CHECKPOINT_FAL
 
 LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO")
 REQUEST_SLOW_MS = int(os.getenv("REQUEST_SLOW_MS", "1000"))
+LLM_TIMEOUT_SECONDS = float(os.getenv("LLM_TIMEOUT_SECONDS", "30"))
+THIRD_PARTY_TIMEOUT_SECONDS = float(os.getenv("THIRD_PARTY_TIMEOUT_SECONDS", "10"))
+TASK_MAX_RETRIES = int(os.getenv("TASK_MAX_RETRIES", "3"))
+TASK_CIRCUIT_FAILURE_THRESHOLD = int(os.getenv("TASK_CIRCUIT_FAILURE_THRESHOLD", "5"))
+TASK_CIRCUIT_RESET_SECONDS = float(os.getenv("TASK_CIRCUIT_RESET_SECONDS", "60"))

@@ -15,6 +15,7 @@ from models.business import (
     TrademarkCheck,
 )
 from models.user import User
+from repository.entitlement_repo import EntitlementRepository
 
 
 def _json_dict(value):
@@ -277,7 +278,16 @@ class PhaseTwoRepository:
         if not user:
             return None
         before_quota = user.free_quota
-        user.free_quota += order.quota_delta
+        if order.quota_delta > 0:
+            await EntitlementRepository(self.session).grant(
+                user_id=user_id,
+                entitlement_type="quota",
+                amount=order.quota_delta,
+                source="phase2_order_paid",
+                order_id=order.id,
+                remark=f"phase2 order {order.order_no} paid",
+                commit=False,
+            )
         order.before_quota = before_quota
         order.after_quota = user.free_quota
         order.pay_status = "paid"

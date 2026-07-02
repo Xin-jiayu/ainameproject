@@ -13,7 +13,7 @@ llm = ChatDeepSeek(
     api_key=settings.DEEPSEEK_API_KEY,
     # 为了让模型返回数据的时候根据我们给定的格式输出，所以稍微低一点
     temperature=0.5,
-    timeout=120
+    timeout=settings.LLM_TIMEOUT_SECONDS
 )
 
 system_prompt = """你是一位精通汉语言文学与传统文化的命名专家。请为用户创作富有文化底蕴的人名。

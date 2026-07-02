@@ -132,21 +132,58 @@ class UserRepository():
             raise
 
     async def consume_free_quota(self, user_id:int):
-        async with self.session.begin():
-            stmt = select(User).where(User.id == int(user_id)).with_for_update()
-            user = await self.session.scalar(stmt)
+        from repository.entitlement_repo import EntitlementRepository
+
+        try:
+            user = await self.session.scalar(select(User).where(User.id == int(user_id)).with_for_update())
             if not user or user.free_quota <= 0:
                 return None
             before_quota = user.free_quota
-            user.free_quota -= 1
+            repository = EntitlementRepository(self.session)
+            record = await repository.consume(
+                user_id=user_id,
+                entitlement_type="free_quota",
+                amount=1,
+                source="name_generate",
+                remark="consume naming quota",
+                commit=False,
+            )
+            if not record:
+                record = await repository.consume(
+                    user_id=user_id,
+                    entitlement_type="quota",
+                    amount=1,
+                    source="name_generate",
+                    remark="consume naming quota",
+                    commit=False,
+                )
+            if not record:
+                await self.session.rollback()
+                return None
+            await self.session.commit()
             return {
                 "before_quota": before_quota,
                 "after_quota": user.free_quota,
+                "entitlement_type": record.entitlement_type,
+                "record_id": record.id,
             }
+        except Exception:
+            await self.session.rollback()
+            raise
 
     async def refund_free_quota(self, user_id:int):
-        async with self.session.begin():
-            stmt = select(User).where(User.id == int(user_id)).with_for_update()
-            user = await self.session.scalar(stmt)
-            if user:
-                user.free_quota += 1
+        from repository.entitlement_repo import EntitlementRepository
+
+        try:
+            await EntitlementRepository(self.session).refund(
+                user_id=user_id,
+                entitlement_type="free_quota",
+                amount=1,
+                source="name_generate_refund",
+                remark="refund failed naming quota",
+                commit=False,
+            )
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
