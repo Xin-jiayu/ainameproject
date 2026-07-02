@@ -89,5 +89,10 @@ export default {
   deleteNameRecord: (id) => request(API_ENDPOINTS.names.record(id), { method: "DELETE" }),
   uploadKnowledge: (filePath) => uploadFile(API_ENDPOINTS.knowledge.upload, filePath),
   getKnowledgeFiles: (skip = 0, limit = 20) => request(buildQuery(API_ENDPOINTS.knowledge.files, { skip, limit }), { method: "GET" }),
-  getKnowledgeFile: (id) => request(API_ENDPOINTS.knowledge.file(id), { method: "GET" })
+  getKnowledgeFile: (id) => request(API_ENDPOINTS.knowledge.file(id), { method: "GET" }),
+  getAdminUsers: (params = {}) => request(buildQuery(API_ENDPOINTS.adminUsers.list, params), { method: "GET" }),
+  updateAdminUser: (id, data) => request(API_ENDPOINTS.adminUsers.detail(id), { method: "PATCH", data }),
+  setAdminUserFrozen: (id, isFrozen) => request(API_ENDPOINTS.adminUsers.freeze(id), { method: "POST", data: { is_frozen: isFrozen } }),
+  resetAdminUserPassword: (id, password) => request(API_ENDPOINTS.adminUsers.resetPassword(id), { method: "POST", data: { password } }),
+  deleteAdminUser: (id) => request(API_ENDPOINTS.adminUsers.detail(id), { method: "DELETE" })
 };

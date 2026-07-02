@@ -23,6 +23,10 @@
     {
       "path": "pages/knowledge/knowledge",
       "style": { "navigationBarTitleText": "企业知识库", "enablePullDownRefresh": true }
+    },
+    {
+      "path": "pages/admin/users",
+      "style": { "navigationBarTitleText": "用户管理", "enablePullDownRefresh": true }
     }
   ],
   "globalStyle": {

@@ -5,7 +5,7 @@
         <text class="eyebrow">NAMING STUDIO</text>
         <view class="hello">你好，{{ user.username || '灵感探索者' }}</view>
       </view>
-      <view class="top-actions"><text @click="goKnowledge">知识库</text><text @click="goHistory">历史方案 ›</text></view>
+      <view class="top-actions"><text v-if="user.is_admin" @click="goAdmin">用户管理</text><text @click="goKnowledge">知识库</text><text @click="goHistory">历史方案 ›</text></view>
     </view>
 
     <view class="hero-card">
@@ -193,6 +193,7 @@ const changeGender = (event) => { formData.value.gender = genderOptions[event.de
 const changeLength = (event) => { formData.value.length = lengthOptions[event.detail.value]; };
 const goHistory = () => uni.navigateTo({ url: '/pages/history/history' });
 const goKnowledge = () => uni.navigateTo({ url: '/pages/knowledge/knowledge' });
+const goAdmin = () => uni.navigateTo({ url: '/pages/admin/users' });
 const domainAvailable = (status = '') => /未注册|可注册|available|✅/i.test(status);
 const isFavorite = (item) => favoriteNames.value.includes(item.name);
 const isSelected = (item) => selectedName.value === item.name;

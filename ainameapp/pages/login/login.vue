@@ -23,7 +23,8 @@ const handleLogin = async () => {
     uni.setStorageSync('token', res.token);
     uni.setStorageSync('user', res.user);
     uni.showToast({ title: '登录成功' });
-    setTimeout(() => uni.reLaunch({ url: '/pages/index/index' }), 1000); // 假设index是tab页，如果不是用redirectTo
+    const target = res.user?.is_admin ? '/pages/admin/users' : '/pages/index/index';
+    setTimeout(() => uni.reLaunch({ url: target }), 700);
   } catch (e) {
     console.error(e);
   } finally {

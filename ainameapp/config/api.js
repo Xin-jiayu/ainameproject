@@ -23,6 +23,12 @@ export const API_ENDPOINTS = Object.freeze({
     upload: "/knowledge/upload",
     files: "/knowledge/files",
     file: (id) => `/knowledge/files/${encodeURIComponent(id)}`
+  },
+  adminUsers: {
+    list: "/admin/users",
+    detail: (id) => `/admin/users/${encodeURIComponent(id)}`,
+    freeze: (id) => `/admin/users/${encodeURIComponent(id)}/freeze`,
+    resetPassword: (id) => `/admin/users/${encodeURIComponent(id)}/reset-password`
   }
 });
 
